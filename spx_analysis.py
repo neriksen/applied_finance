@@ -6,7 +6,7 @@ import arch
 import datetime as dt
 
 
-def simulate_market(years, data_to_simulate, p=1, o=0, q=1):
+def simulate_market(start_date, end_date, data_to_simulate, p=1, o=0, q=1):
     '''
     Simulated a market using a gjr-garch(1,1) with a skewed t-distribution to draw error term
     
@@ -18,8 +18,8 @@ def simulate_market(years, data_to_simulate, p=1, o=0, q=1):
     results=model.fit(disp='off')
     
     #setting horizon
-    horizon = 252*years
-
+    horizon = len(pd.date_range(start_date, end_date, freq='B'))
+    print(horizon)
     #rs = np.random.RandomState()
     #state = rs.get_state()
 
