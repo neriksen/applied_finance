@@ -1,28 +1,41 @@
 import pandas as pd
+import scipy.stats as stats
 import matplotlib.pyplot as plt
-import random
 import numpy as np
-
-spx = pd.read_csv('^GSPC.csv', index_col=0)
-
-spx.index = pd.to_datetime(spx.index)
-spx = spx.asfreq(freq='BMS', method='bfill')
-#spx['monthly_chg'] = spx['Adj Close'].pct_change()
-
-spx['monthly_chg'] = spx['Adj Close'].pct_change()
+import arch
+import datetime as dt
 
 
-trend = 1.07**(1/12)
-std = spx['monthly_chg'].std()
-market = np.empty([12*60, 100])
+def simulate_market(years, data_to_simulate, p=1, o=0, q=1):
+    '''
+    Simulated a market using a gjr-garch(1,1) with a skewed t-distribution to draw error term
+    
+    returns
+    
+    a dataframe with returns, volatility, error terms and market prices given index 100 at t=0
+    '''
+    model=arch.arch_model(data_to_simulate, vol='Garch', p=p, o=o, q=q, dist='skewt')
+    results=model.fit(disp='off')
+    
+    #setting horizon
+    horizon = 252*years
 
-for j in range(100):
-    market[0, j] = 100
-    for i in range(1, 12*60):
-        rnd = random.normalvariate(0, std)
-        market[i, j] = (market[i-1, j]*trend+rnd*market[i-1, j])
+    #rs = np.random.RandomState()
+    #state = rs.get_state()
 
+    #dist = arch.univariate.SkewStudent(random_state=rs)
+    dist = arch.univariate.SkewStudent()
+    vol = arch.univariate.GARCH(p=p, o=o, q=q)
+    repro_mod = arch.univariate.ConstantMean(None, volatility=vol, distribution=dist)
 
-plt.plot(market)
-#plt.yscale('log')
-plt.show()
+    returns=repro_mod.simulate(results.params, horizon)
+    
+    market = np.empty((horizon, 1))
+    market[0, 0] = 100
+    for i, err in enumerate(returns["data"].values, start=1):
+        if i < (horizon):
+            market[i, 0] = market[i-1, 0]*(1+err/100)
+    
+    returns['Price'] = pd.DataFrame({'Price': market[:, 0]})
+    
+    return returns
