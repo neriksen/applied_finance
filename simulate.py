@@ -68,7 +68,6 @@ class Market:
         vol = arch.univariate.GARCH(p=p, o=o, q=q)
         model = arch.univariate.ConstantMean(data, volatility=vol, distribution=dist)
         results = model.fit(disp='off')
-        print('R**2:', results.rsquared_adj, ' loglikelihood:', results.loglikelihood)
         returns = model.simulate(results.params, pick_horizon(self, freq = 'D'))
         
         returns['Price'] = normalize_market(returns['data'].values)
