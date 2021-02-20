@@ -33,9 +33,39 @@ class Market:
         self.days = len(self.index)
         self.months = len(self.monthly_index)
         self.years = len(self.yearly_index)
+
+        
+    def norm_innovations(self, log = True, freq = 'D', random_state = None):
+        '''
+        Simulate a market using a fitted normal distribution
+        
+        log: Boolean (log change/pct change)
+        freq: 'Y' (default), 'M', 'D'
+        with_replacement: Boolean
+        random_state = None (default), int
+
+        returns Nx1 Dataframe
+        '''
+        data = pick_log_freq(self, log, freq)
+        mean, var = stats.norm.fit(data)
+        market_sample = stats.norm.rvs(mean, var, size= pick_horizon(self, freq), random_state = random_state)
+        normalized = normalize_market(market_sample)
+        
+        return pd.DataFrame(normalized, index=pick_index(self, freq), columns=['Price'])        
+        
+        
     
-    
-    def innovations(self, log = True, freq = 'D', random_state = None):
+    def t_innovations(self, log = True, freq = 'D', random_state = None):
+        '''
+        Simulate a market using a fitted t distribution
+        
+        log: Boolean (log change/pct change)
+        freq: 'Y' (default), 'M', 'D'
+        with_replacement: Boolean
+        random_state = None (default), int
+
+        returns Nx1 Dataframe
+        '''
         data = pick_log_freq(self, log, freq)
         df, loc, scale = stats.t.fit(data)
         market_sample = stats.t.rvs(df, loc, scale, size= pick_horizon(self, freq), random_state = random_state)
@@ -46,6 +76,15 @@ class Market:
     
     
     def draw(self, log = True, freq = 'Y', with_replacement = True, random_state = None):
+        '''
+        Simulated a market using drawing
+
+        freq: 'Y' (default), 'M', 'D'
+        with_replacement: Boolean
+        random_state = None (default), int
+
+        returns Nx1 Dataframe
+        '''
         data = pick_log_freq(self, log, freq)
 
         market_data = data.sample(n = pick_horizon(self, freq), replace=with_replacement, random_state = random_state)
