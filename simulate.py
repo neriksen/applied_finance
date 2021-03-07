@@ -41,7 +41,6 @@ class Market:
         
         log: Boolean (log change/pct change)
         freq: 'Y' (default), 'M', 'D'
-        with_replacement: Boolean
         random_state = None (default), int
 
         returns Nx1 Dataframe
@@ -61,7 +60,6 @@ class Market:
         
         log: Boolean (log change/pct change)
         freq: 'Y' (default), 'M', 'D'
-        with_replacement: Boolean
         random_state = None (default), int
 
         returns Nx1 Dataframe
