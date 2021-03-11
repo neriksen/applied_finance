@@ -91,7 +91,7 @@ class Market:
         return pd.DataFrame(normalized, index=pick_index(self, freq), columns=['Price'])
     
     
-    def garch(self, p=1, o=0, q=1, random_state = None, log = True):
+    def garch(self, p=1, o=1, q=1, random_state = None, log = True):
         '''
         Simulated a market using a gjr-garch(1,1) with a skewed t-distribution to draw error term
 
@@ -105,7 +105,11 @@ class Market:
         vol = arch.univariate.GARCH(p=p, o=o, q=q)
         model = arch.univariate.ConstantMean(data, volatility=vol, distribution=dist)
         results = model.fit(disp='off')
-        returns = model.simulate(results.params, pick_horizon(self, freq = 'D'))
+        #print(results.params)
+        
+        returns = model.simulate(results.params, pick_horizon(self, freq = 'D'), burn = 500)
+        
+        #print(results.params)
         
         returns['Price'] = normalize_market(returns['data'].values)
         
@@ -157,9 +161,10 @@ def normalize_market(market_data):
     horizon = len(market_data)
     market = np.empty((horizon, 1))
     market[0, 0] = 100
-    for i, err in enumerate(market_data, start=1):
+
+    for i, returns in enumerate(market_data, start=1):
         if i < (horizon):
-            market[i, 0] = market[i-1, 0]*(1+err/100)
+            market[i, 0] = market[i-1, 0]*(1+returns/100)
     return market
 
 
