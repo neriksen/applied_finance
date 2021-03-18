@@ -91,7 +91,7 @@ class Market:
         return pd.DataFrame(normalized, index=pick_index(self, freq), columns=['Price'])
     
     
-    def garch(self, p=1, o=1, q=1, random_state = None, log = True):
+    def garch(self, p=1, o=1, q=1, random_state = None, log = True, mu_override = ""):
         '''
         Simulated a market using a gjr-garch(1,1) with a skewed t-distribution to draw error term
 
@@ -104,13 +104,14 @@ class Market:
         dist = arch.univariate.SkewStudent(np.random.RandomState(random_state))
         vol = arch.univariate.GARCH(p=p, o=o, q=q)
         model = arch.univariate.ConstantMean(data, volatility=vol, distribution=dist)
-        results = model.fit(disp='off')
-        #print(results.params)
+        results = model.fit(disp = 'off')
+        params = results.params
         
-        returns = model.simulate(results.params, pick_horizon(self, freq = 'D'), burn = 500)
+        if not mu_override == "":
+            params['mu'] = mu_override
         
-        #print(results.params)
-        
+        returns = model.simulate(params, pick_horizon(self, freq = 'D'), burn = 500)
+               
         returns['Price'] = normalize_market(returns['data'].values)
         
         returns.index = pick_index(self, freq = 'D')
