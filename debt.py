@@ -10,14 +10,22 @@ class Debt:
         self.debt_amount = 0
         self.rate_structure = rate_structure
         self.rate_structure_type = rate_structure_type
-        
+        self.repaid = False
     
-    def change_rate(self, rate_structure):
+    
+    def change_rate_structure(self, rate_structure):
         self.rate_structure = rate_structure
         
     
     def add_debt(self, debt_amount):
         self.debt_amount += debt_amount
+        
+        
+    def prepayment(self, prepayment_amount):
+        self.debt_amount -= prepayment_amount
+        if self.debt_amount <= 0:
+            self.repaid = True
+        
         
     def calculate_interest(self, basis = self.debt_amount):
         interest_bill = 0
@@ -29,8 +37,9 @@ class Debt:
             return interest_bill
         
         else:
+            debt = self.debt_amount
             for row in self.rate_structure:
-                basis *= (1-row[0])
-                interest_bill += min(row[1], debt_to_bill)*row[2]
-            
+                basis *= (row[0]-row[1])
+                interest_bill += 
+                debt -= basis
             return interest_bill
