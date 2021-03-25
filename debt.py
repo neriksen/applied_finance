@@ -1,3 +1,5 @@
+import math
+
 def relative_to_dollar_conversion(rate_structure, basis):
     # Converts relative rate structure to dollar structure, to allow for calculation
     converted_structure = []
@@ -23,7 +25,7 @@ class Debt:
         if self.debt_amount <= 0:
             self.repaid = True
 
-    def calculate_interest(self, basis=""):
+    def calculate_interest(self, basis="", monthly=True):
         basis = self.debt_amount if basis == "" else basis
         interest_bill = 0
         rate_structure = relative_to_dollar_conversion(self.rate_structure, basis) if self.rate_structure_type != 'dollar' else self.rate_structure
@@ -33,7 +35,7 @@ class Debt:
 
         for row in rate_structure:
             basis -= row[0]
-            interest_bill += min(row[1], basis) * row[2]
+            interest_bill += min(row[1], basis) * (row[2] if not monthly else (math.exp(row[2]/12) -1))
 
         return interest_bill
 
