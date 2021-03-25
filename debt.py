@@ -19,7 +19,7 @@ class Debt:
         self.debt_amount += debt_amount
 
     def prepayment(self, prepayment_amount):
-        self.debt_amount -= prepayment_amount
+        self.debt_amount -= min(prepayment_amount, self.debt_amount)
         if self.debt_amount <= 0:
             self.repaid = True
 

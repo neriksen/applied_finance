@@ -111,7 +111,9 @@ class Market:
             params['mu'] = mu_override
         
         returns = model.simulate(params, pick_horizon(self, freq = 'D'), burn = 500)
-               
+        
+        returns['data'] = returns['data'].apply(lambda x: max(-99.9, x))
+        
         returns['Price'] = normalize_market(returns['data'].values)
         
         returns.index = pick_index(self, freq = 'D')
