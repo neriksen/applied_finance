@@ -1,15 +1,15 @@
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import style
 style.use('classic')
 import numpy as np
 import datetime as dt
-from datetime import timedelta
 import simulate
 from debt import Debt
 import math
 import time
-
+import pickle
 
 
 def determine_investment(phase, pv_u, tv_u, s, td, pi_rf, dst, g, period):
@@ -125,16 +125,16 @@ def calculate_return(savings_in, returns, gearing_cap, pi_rf, pi_rm, rf):
     ses_val = savings_in.sum()     # Possibly add more sophisticated discounting
     ist = pi_rm*ses_val
     columns = ['period', 'savings', 'cash', 'new_equity', 'new_debt', 'total_debt', 'nip', 'pv_p', 
-               'interest', 'market_returns', 'pv_u', 'tv_u', 'equity', 'dst', 'phase', 'pi_hat', 'ses', 'g_hat', 'SU_debt', 'Nordnet_debt']
+               'interest', 'market_returns', 'pv_u', 'tv_u', 'equity', 'dst', 'phase', 'pi_hat',
+               'g_hat', 'SU_debt', 'Nordnet_debt']
     
     len_columns = len(columns)
     
     pp = np.zeros((len_savings, len_columns))
     
-    period, savings, cash, new_equity, new_debt, total_debt, nip, pv_p, interest, market_returns, pv_u, tv_u, equity, dst, phase, pi_hat, ses, g_hat, SU_debt, Nordnet_debt = range(len_columns)
+    period, savings, cash, new_equity, new_debt, total_debt, nip, pv_p, interest, market_returns, pv_u, tv_u, equity, dst, phase, pi_hat, g_hat, SU_debt, Nordnet_debt = range(len_columns)
     
     
-    pp[:, ses]               = ses_val
     pp[:, period]            = range(len_savings)
     pp[:, market_returns]    = returns
     pp[:, savings]           = savings_in
@@ -146,7 +146,8 @@ def calculate_return(savings_in, returns, gearing_cap, pi_rf, pi_rm, rf):
         debt_available['SU'] = Debt(rate_structure = [[0, 0, 0.04]], rate_structure_type='relative', initial_debt = 0)
     
     if 'Nordnet' in debt_available.keys(): 
-        debt_available['Nordnet'] = Debt(rate_structure = [[0, .4, 0.02], [.4, .6, 0.03], [.6, 0, 0.07]], rate_structure_type='relative', initial_debt = 0)
+        debt_available['Nordnet'] = Debt(rate_structure = [[0, .4, 0.02], [.4, .6, 0.03], [.6, 0, 0.07]],
+                                         rate_structure_type='relative', initial_debt = 0)
 
                       
     # Period 0 primo
@@ -158,7 +159,7 @@ def calculate_return(savings_in, returns, gearing_cap, pi_rf, pi_rm, rf):
     pp[0, Nordnet_debt] = max(0, pp[0, new_debt] - 3248)
     pp[0, nip]          = pp[0, new_debt] + pp[0, new_equity]
     pp[0, pv_p]         = pp[0, nip]
-    pp[0, pi_hat]       = pp[0, pv_p]/ses
+    pp[0, pi_hat]       = pp[0, pv_p]/ses_val
     
     # Period 0 ultimo
     pp[0, interest]     = pp[0, new_debt]*max(interest_all_debt(), 0)                   
@@ -200,7 +201,7 @@ def calculate_return(savings_in, returns, gearing_cap, pi_rf, pi_rm, rf):
             pp[i, pv_u]     = pp[i, pv_p]*(1+pp[i, market_returns])-pp[i, interest]
             pp[i, tv_u]     = pp[i, pv_u] + pp[i, cash]
             pp[i, equity]   = pp[i, tv_u] - pp[i, total_debt]
-            pp[i, pi_hat]   = min(pp[i, pv_u]/ses, pp[i, pv_u]/pp[i, tv_u])
+            pp[i, pi_hat]   = min(pp[i, pv_u]/ses_val, pp[i, pv_u]/pp[i, tv_u])
             pp[i, phase]    = phase_check(pp[i-1, phase], pi_rf, pi_rm, pp[i, pi_hat], pp[i, total_debt])
             target_pi       = pi_rm if pp[i-1, phase] < 3 else pi_rf
             pp[i, dst]      = max(pp[i, tv_u]*target_pi, ist)  # Moving stock target
@@ -210,12 +211,10 @@ def calculate_return(savings_in, returns, gearing_cap, pi_rf, pi_rm, rf):
             print('Warning: Fatal wipeout')          
             pp[i:, [savings, cash, new_equity, new_debt, nip, pv_p, 
                         interest, pv_u, tv_u, pi_hat, g_hat]] = 0
-            pp[i:, total_debt]   = pp[i-1,total_debt]
-            pp[i:, SU_debt]      = pp[i-1, SU_debt]
-            pp[i:, Nordnet_debt] = pp[i-1, Nordnet_debt]
-            pp[i:, equity]       = pp[i-1, equity]
-            pp[i:, dst]          = pp[i-1, dst]
-            pp[i:, phase]        = pp[i-1, phase]
+            
+            cols = [total_debt, SU_debt, Nordnet_debt, equity, dst, phase]
+            pp[i:, cols] = pp[i-1, cols]
+
             break
     
     pp[:, g_hat] = pp[:, total_debt]/pp[:, equity]
@@ -235,25 +234,29 @@ def calculate100return(savings_in, returns):
     pp = np.empty((len_savings, len(columns)))
     
     period, savings, pv_p, market_returns, tv_u = range(5)              
-        
+    
+    def return100(value, savings, market_return):
+        return value, (value+savings)*(1+market_return)
+    
+    re100 = np.vectorize(return100, "f")
+    
     pp[:, period] = range(len_savings)
     pp[:, market_returns] = returns
     pp[:, savings] = savings_in
     pp[0, market_returns] = 0
     pp[0, pv_p] = pp[0, savings]
     pp[0, tv_u] = pp[0, savings]
-    
+
     for i in range(1, len_savings):
  
         # Period t > 0 primo
-        pp[i, pv_p] = pp[i-1, tv_u] + pp[i, savings]        
+        pp[i, pv_p]  = pp[i-1, tv_u] + pp[i, savings]        
         
         # Period t > 0 ultimo
         pp[i, tv_u] = pp[i, pv_p]*(1+pp[i, market_returns])
 
-    
+
     pp = pd.DataFrame(pp, columns = columns)
-    
     return pp
 
 
@@ -299,58 +302,78 @@ def calculate9050return(savings_in, returns, rf):
     return pp
 
 
-
-def main():
-    spx = pd.read_csv('^GSPC.csv', index_col=0)
-
-    start = dt.date(2020, 1, 1)
-    end = dt.date(2080, 1, 31)
+def summary_stats(returns, values, h, annual_rf):
+    mean = ((values[-1]/values[0])**(1/h)-1)*3.46410
+    std = returns.std()*3.46410   #sqrt(12) = 3.46410
+    return np.array([mean, std, (mean-annual_rf)/std, values[-1]]).transpose()
 
 
-    Market = simulate.Market(spx.iloc[-7500:, -2], start, end)
-
-    savings_year = pd.read_csv('investment_plan_year.csv', sep=';', index_col=0)
-    savings_year.index = pd.to_datetime(savings_year.index, format='%Y')
-    savings_month = (savings_year.resample('BMS').pad()/12)['Earnings'].values
-
-    yearly_rf = 0.015
-    yearly_rm = 0.04  # Weighted average of margin rates
+def main(investments, Market, sim_type, random_state, gearing_cap, gamma, sigma, mr,
+         yearly_rf, yearly_rm, cost, freq, period):
 
 
-    investments = savings_month*0.05
-    rf = math.exp(yearly_rf/12)-1
-    rm = math.exp(yearly_rm/12)-1
-    freq = 'BMS'
+    vars_for_name = (sim_type, random_state, gearing_cap, gamma, sigma, mr, yearly_rf, yearly_rm, cost)
+    out_str = [str(x) + '_' if x != vars_for_name[-1] else str(x) for x in vars_for_name]
+
+    try:
+        pd.read_pickle('sims/' + ''.join(out_str) + '.bz2')
+        print('skipping...')
+    #except pickle.UnpicklingError:
+    #    print('pickle error', 'sims/' + ''.join(out_str) + '.pkl')
+
+    except FileNotFoundError:
+        if sim_type == 'garch':
+            market = Market.garch(log=False, random_state=random_state, mu_override=0.030800266141550736).asfreq(freq, 'pad')
+        if sim_type == 'draw':
+            market = Market.draw(random_state = random_state, freq=period).asfreq(freq, 'pad')
+        if sim_type == 'norm':
+            market = Market.norm_innovations(random_state = random_state, freq=period).asfreq(freq, 'pad')
+        if sim_type == 't':
+            market = Market.t_innovations(random_state = random_state, freq=period).asfreq(freq, 'pad')
+
+        returns = market['Price'].pct_change().values
+        rf = math.exp(yearly_rf/12)-1
+
+        pi_rf = calc_pi(gamma, sigma, mr, yearly_rf, cost)
+        pi_rm = calc_pi(gamma, sigma, mr, yearly_rm, cost)
+
+        port = calculate_return(investments, returns, gearing_cap, pi_rf, pi_rm, rf)
+        port100 = calculate100return(investments, returns)
+        port9050 = calculate9050return(investments, returns, rf)
+
+        #Joining normal strategies on to geared
+        port['100'] = port100['tv_u']
+        port['9050'] = port9050['tv_u']
+
+        # Reducing size of port
+        # Setting period as index
+        port.set_index('period', drop=True, inplace=True)
+
+        # Dropping non-essential columns
+        port.drop(columns=['nip', 'pv_u', 'equity', 'pi_hat', 'g_hat'], inplace=True)
+
+        # Convert selected float columns to integer values
+        flt_cols = ['savings', 'cash', 'new_equity', 'new_debt', 'total_debt',
+                    'pv_p', 'interest', 'tv_u', 'dst', 'phase', '100', '9050']
+
+        port.loc[:, flt_cols] = port.loc[:, flt_cols].astype(int)
+        for debt in ['SU_debt', 'Nordnet_debt']:
+            try:
+                port.loc[:, [debt]] = port.loc[:, [debt]].astype(int)
+            except:
+                pass
+
+        # Using compressed pickle to store data efficiently
+        port.to_pickle('sims/' + ''.join(out_str) + '.bz2', compression = "bz2")
 
 
-    global debt_available
-    debt_available = {'SU': "", 'Nordnet': ""}
-    gamma = 2.5
-    sigma = Market.yearly.pct_change().std()**2
-    mr = (Market.yearly[-1]/Market.yearly[0])**(1/len(Market.yearly))-1
 
+        #out = np.empty((4, 3))
+        #for i, p in enumerate([port, port100, port9050]):
+        #    out[:, i] = summary_stats(p['tv_u'].pct_change()[1:].values, p['tv_u'].values, len(port), yearly_rf)
 
-    pi_rf = calc_pi(gamma, sigma, mr, yearly_rf, cost = 0)
-    pi_rm = calc_pi(gamma, sigma, mr, yearly_rm, cost = 0)
-
-    #print('pi_rf', pi_rf, 'pi_rm', pi_rm)
-
-
-    #market = Market.draw(random_state = 16, freq=period).asfreq(freq, 'pad')
-    #market = Market.norm_innovations(random_state = 6969, freq=period).asfreq(freq, 'pad')
-    #market = Market.t_innovations(random_state = 6969, freq=period).asfreq(freq, 'pad')
-    market = Market.garch(log = False, random_state = 6229, mu_override = 0.030800266141550736).asfreq(freq, 'pad')
-    returns = market['Price'].pct_change().values
-    
-    
-    port = calculate_return(investments, returns, 1, pi_rf, pi_rm, rf)
-    port100 = calculate100return(investments, returns)
-    port9050 = calculate9050return(investments, returns, rf)
-    
-    port['100tv_u'] = port100['tv_u']
-    port['9050tv_u'] = port9050['tv_u']
-    
-    #print(port.head(5))
+        #out = pd.DataFrame(out, columns=['geared', '100', '9050'])
+        #print('dumped pickle')
 
     #fig, ax = plt.subplots(1, 1, figsize = (15, 10))
     #vars_to_plot = ['cash', 'total_debt', 'tv_u', '100tv_u', '9050tv_u']
@@ -362,9 +385,68 @@ def main():
     #ax.legend(vars_to_plot, loc = 'upper left', frameon=False)
     #plt.show()
 
+
+
     
 if __name__ == "__main__":
-    tic = time.perf_counter()
-    main()    
-    toc = time.perf_counter()
-    print(f"Script took {toc - tic:0.5f} seconds")
+    from multiprocessing.pool import Pool
+
+    # Creating returns to simulate
+    spx = pd.read_csv('^GSPC.csv', index_col=0)
+    savings_year = pd.read_csv('investment_plan_year.csv', sep=';', index_col=0)
+    savings_year.index = pd.to_datetime(savings_year.index, format='%Y')
+    savings_month = (savings_year.resample('BMS').pad()/12)['Earnings'].values
+
+
+    yearly_rf = 0.015
+    yearly_rm = 0.04  # Weighted average of margin rates
+
+    # --- Fixed parameters ----
+    investments = savings_month*0.05
+
+    start = dt.date(2020, 1, 1)
+    end = dt.date(2080, 1, 31)
+    Market = simulate.Market(spx.iloc[-7500:, -2], start, end)
+
+    gamma = 2.5
+    sigma = Market.yearly.pct_change().std()**2
+    mr = (Market.yearly[-1]/Market.yearly[0])**(1/len(Market.yearly))-1
+    cost = 0
+    freq = 'BMS'
+    period = 'M'
+    # --- End fixed parameters ----
+
+    debt_available = {'SU': "", 'Nordnet': ""}
+    from itertools import product
+
+    gearing_cap = 1
+
+
+    a = [[investments], [Market], ['garch', 'norm', 't', 'draw'], range(3000), [1, 1.5],
+         [1.8, 2.3], [sigma], [mr], [0.01, 0.02, 0.03], [0.04, 0.05, 0.06], [cost], [freq], [period]]
+    comb_args = tuple(product(*a))
+
+    (investments, Market, sim_type, random_state, gearing_cap, gamma, sigma, mr,
+         yearly_rf, yearly_rm, cost, freq, period)
+    
+    iter = (i for i in comb_args)
+    num_sims = sum(1 for _ in iter)
+    print('number of simulations to run: ', num_sims)
+
+    import glob, os
+
+    folder = 'sims'
+
+    cnt = 0
+    for filename in glob.iglob(os.path.join(folder, '*.pkl')):
+        #os.rename(filename, filename[:-4] + '.bz2')
+        #print(filename)
+        cnt += 1
+    print(cnt)
+    #main(investments, Market, 'garch', 200, gearing_cap, gamma, sigma, mr, yearly_rf, yearly_rm, cost)
+    ##with Pool() as p:
+     #   tic = time.perf_counter()
+     #   p.starmap(main, comb_args)
+     #   toc = time.perf_counter()
+     #   print(f"Script took {toc - tic:0.5f} seconds")
+
