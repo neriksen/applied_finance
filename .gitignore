@@ -133,3 +133,5 @@ from_disk
 .idea/
 archive
 sims
+market_lookup/
+combined_garch.bz2
