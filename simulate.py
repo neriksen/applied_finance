@@ -110,8 +110,9 @@ class Market:
         if not mu_override == "":
             params['mu'] = mu_override
         
-        returns = model.simulate(params, pick_horizon(self, freq = 'D'), burn = 500)
+        returns = model.simulate(params, pick_horizon(self, freq = 'D'))
         
+        #Ensure returns cannot dip below -100%
         returns['data'] = returns['data'].apply(lambda x: max(-99.9, x))
         
         returns['Price'] = normalize_market(returns['data'].values)
@@ -164,10 +165,14 @@ def normalize_market(market_data):
     horizon = len(market_data)
     market = np.empty((horizon, 1))
     market[0, 0] = 100
-
-    for i, returns in enumerate(market_data, start=1):
-        if i < (horizon):
-            market[i, 0] = market[i-1, 0]*(1+returns/100)
+    market_data.tolist()
+    #for i, returns in enumerate(market_data, start=1):
+    #    if i < (horizon):
+    #        market[i, 0] = market[i-1, 0]*(1+returns/100)
+    market_data /= 100        
+    for i in range(1, horizon):
+        market[i, 0] = market[i-1, 0]*(1+market_data[i])
+        
     return market
 
 
