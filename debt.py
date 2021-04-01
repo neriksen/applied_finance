@@ -10,8 +10,10 @@ def relative_to_dollar_conversion(rate_structure, basis):
 
 
 class Debt:
-    def __init__(self, rate_structure=[[0, 1000, 0.02]], rate_structure_type='dollar', initial_debt=1000):
-        assert rate_structure_type in ['dollar', 'relative'], 'Rate structure must be of type "dollar" or "relative"'
+    def __init__(self, rate_structure=((0, 1000, 0.02)),
+                 rate_structure_type='dollar', initial_debt=1000):
+        assert rate_structure_type in ['dollar', 'relative'],\
+            'Rate structure must be of type "dollar" or "relative"'
         self.debt_amount = initial_debt
         self.rate_structure_type = rate_structure_type
         self.rate_structure = rate_structure
@@ -28,20 +30,23 @@ class Debt:
     def calculate_interest(self, basis="", monthly=True):
         basis = self.debt_amount if basis == "" else basis
         interest_bill = 0
-        rate_structure = relative_to_dollar_conversion(self.rate_structure, basis) if self.rate_structure_type != 'dollar' else self.rate_structure
+        rate_structure = relative_to_dollar_conversion(self.rate_structure, basis)\
+            if self.rate_structure_type != 'dollar' else self.rate_structure
 
         # Make sure entire debt is covered by rate structure
         rate_structure[-1][1] = self.debt_amount
 
         for row in rate_structure:
             basis -= row[0]
-            interest_bill += min(row[1], basis) * (row[2] if not monthly else (math.exp(row[2]/12) -1))
+            interest_bill += min(row[1], basis) * (row[2] if not monthly
+                                                   else (math.exp(row[2]/12) -1))
 
         return interest_bill
 
 
 
 if __name__ == '__main__':
-    SU = Debt(rate_structure=[[0, .4, 0.02], [.4, 1, 0.03]], rate_structure_type='relative', initial_debt=1000)
+    SU = Debt(rate_structure=[[0, .4, 0.02], [.4, 1, 0.03]],
+              rate_structure_type='relative', initial_debt=1000)
     print(SU.calculate_interest())
     print(SU.calculate_interest())
