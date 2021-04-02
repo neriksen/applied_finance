@@ -367,8 +367,8 @@ if __name__ == "__main__":
     # --- End fixed parameters ----
 
     # Creating list of arguments
-    a = [[investments], ['garch'], range(210), [1, 1.5],
-         [1.8, 2.3], [SIGMA], [MR], [0.01, 0.02, 0.03], [0.04, 0.05, 0.06, 0.07], [COST]]
+    a = [[investments], ['garch', 'norm', 't', 'draw'], range(500), (1, 1.5),
+         (1.8, 2.0, 2.2), [SIGMA], [MR], (0.01, 0.02, 0.03), (0.04, 0.05, 0.06, 0.07, 0.08), (0, 0.002)]
 
     #main(investments_in, sim_type, random_state, gearing_cap, gamma, sigma, mr,
     #     yearly_rf, yearly_rm, cost)
@@ -378,6 +378,15 @@ if __name__ == "__main__":
     arg_iter = (i for i in comb_args)
     num_sims = sum(1 for _ in arg_iter)
     print('number of simulations to run: ', num_sims)
+    #import cProfile, pstats
+    #profiler = cProfile.Profile()
+    #profiler.enable()
+    #main(investments, 'garch', 1, 1.5, 2.0, SIGMA, MR, 0.01, 0.05, 0)
+    #profiler.disable()
+    #stats = pstats.Stats(profiler)
+    #stats.strip_dirs()
+    #stats.sort_stats('cumtime')
+    #stats.print_stats()
 
     with Pool() as p:
         tic = time.perf_counter()
