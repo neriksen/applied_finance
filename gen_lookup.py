@@ -50,4 +50,5 @@ if __name__ == '__main__':
     states = tuple(product(*a))
 
     with Pool() as p:
-        p.starmap(sim_market_garch, states)
+        for sim in [sim_market_garch, sim_market_t, sim_market_draw, sim_market_norm]:
+            p.starmap(sim, states)
