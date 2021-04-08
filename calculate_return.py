@@ -99,8 +99,8 @@ def phase_check(phase, pi_rf, pi_rm, pi_hat, td):
     return 4
 
 
-def calc_pi(gamma, sigma, mr, rate, cost=0):
-    return (mr - cost - rate) / (gamma * sigma)
+def calc_pi(gamma, sigma2, mr, rate, cost=0):
+    return (mr - cost - rate) / (gamma * sigma2)
 
 
 def calculate_return(savings_in, returns, gearing_cap, pi_rf, pi_rm, rf):
@@ -276,25 +276,15 @@ def calculate9050return(savings_in, returns, rf):
     return pp
 
 
-def main(investments_in, sim_type, random_state, gearing_cap, gamma, sigma, mr,
-         yearly_rf, yearly_rm, cost):
+def main(investments_in, sim_type, random_state, gearing_cap, gamma, sigma2, mr,
+         yearly_rf, yearly_rm, cost, save_to_file = False):
 
-    #vars_for_name = (sim_type, random_state, gearing_cap, gamma, sigma, mr, yearly_rf, yearly_rm, cost)
-    #out_str = [str(x) + '_' if x != vars_for_name[-1] else str(x) for x in vars_for_name]
-
-    #if sim_type == 'garch':
     returns = np.load('market_lookup/' + sim_type + '/' + str(random_state) + '.npy')
-    #if sim_type == 'draw':
-    #    returns = np.load('market_lookup/draw/' + str(random_state) + '.npy')
-    #if sim_type == 'norm':
-    #    returns = np.load('market_lookup/norm/' + str(random_state) + '.npy')
-    #if sim_type == 't':
-    #    returns = np.load('market_lookup/t/' + str(random_state) + '.npy')
 
     rf = math.exp(yearly_rf / 12) - 1
 
-    pi_rf = calc_pi(gamma, sigma, mr, yearly_rf, cost)
-    pi_rm = calc_pi(gamma, sigma, mr, yearly_rm, cost)
+    pi_rf = calc_pi(gamma, sigma2, mr, yearly_rf, cost)
+    pi_rm = calc_pi(gamma, sigma2, mr, yearly_rm, cost)
 
     port = calculate_return(investments_in, returns, gearing_cap, pi_rf, pi_rm, rf)
     port100 = calculate100return(investments_in, returns)
@@ -306,7 +296,7 @@ def main(investments_in, sim_type, random_state, gearing_cap, gamma, sigma, mr,
 
     # Reducing size of port
     # Setting period as index
-    port.set_index('period', drop=True, inplace=True)
+    #port.set_index('period', drop=True, inplace=True)
 
     # Dropping non-essential columns
     #port.drop(columns=['nip', 'pv_u', 'equity', 'pi_hat', 'g_hat'], inplace=True)
@@ -321,5 +311,10 @@ def main(investments_in, sim_type, random_state, gearing_cap, gamma, sigma, mr,
     #        port.loc[:, [debt]] = port.loc[:, [debt]].astype(int)
     #    except KeyError:
     #        pass
+
+    if save_to_file:
+        vars_for_name = (sim_type, random_state, gearing_cap, gamma, sigma2, mr, yearly_rf, yearly_rm, cost)
+        out_str = [str(x) + '_' if x != vars_for_name[-1] else str(x) for x in vars_for_name]
+        port.to_pickle('sims/' + sim_type + '/' + ''.join(out_str) + '.bz2', compression="bz2")
 
     return port
