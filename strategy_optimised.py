@@ -289,7 +289,7 @@ def main(investments_in, sim_type, random_state, gearing_cap, gamma, sigma, mr,
          yearly_rf, yearly_rm, cost):
     
     vars_for_name = (sim_type, random_state, gearing_cap, gamma, sigma, mr, yearly_rf, yearly_rm, cost)
-    vars_for_name_len = len(vars_for_name)
+    vars_for_name_len = len(vars_for_name)-1
     
     out_str = [str(x) + '_' if vars_for_name.index(x) != vars_for_name_len else str(x) for x in vars_for_name]
     
