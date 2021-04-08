@@ -295,14 +295,7 @@ def main(investments_in, sim_type, random_state, gearing_cap, gamma, sigma, mr,
         print('skipping...')
 
     except FileNotFoundError:
-        if sim_type == 'garch':
-            returns = np.load('market_lookup/garch/' + str(random_state) + '.npy')
-        if sim_type == 'draw':
-            returns = np.load('market_lookup/draw/' + str(random_state) + '.npy')
-        if sim_type == 'norm':
-            returns = np.load('market_lookup/norm/' + str(random_state) + '.npy')
-        if sim_type == 't':
-            returns = np.load('market_lookup/t/' + str(random_state) + '.npy')
+        returns = np.load('market_lookup/' + sim_type + '/' + str(random_state) + '.npy')
 
         rf = math.exp(yearly_rf / 12) - 1
 
@@ -357,7 +350,7 @@ if __name__ == "__main__":
     investments = savings_month * 0.05
 
     START = dt.date(2020, 1, 1)
-    END = dt.date(2080, 1, 31)
+    END = dt.date(2070, 1, 31)
     Market = simulate.Market(spx.iloc[-7500:, -2], START, END)
 
     GAMMA = 2.5
