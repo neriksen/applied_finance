@@ -287,9 +287,12 @@ def summary_stats(returns, values, h, annual_rf):
 
 def main(investments_in, sim_type, random_state, gearing_cap, gamma, sigma, mr,
          yearly_rf, yearly_rm, cost):
+    
     vars_for_name = (sim_type, random_state, gearing_cap, gamma, sigma, mr, yearly_rf, yearly_rm, cost)
-    out_str = [str(x) + '_' if x != vars_for_name[-1] else str(x) for x in vars_for_name]
-
+    vars_for_name_len = len(vars_for_name)
+    
+    out_str = [str(x) + '_' if vars_for_name.index(x) != vars_for_name_len else str(x) for x in vars_for_name]
+    
     try:
         pd.read_pickle('sims/' + sim_type + '/' + ''.join(out_str) + '.bz2')
         print('skipping...')
@@ -327,7 +330,7 @@ def main(investments_in, sim_type, random_state, gearing_cap, gamma, sigma, mr,
                 port.loc[:, [debt]] = port.loc[:, [debt]].astype(int)
             except KeyError:
                 pass
-
+        
         # Using compressed pickle to store data efficiently
         port.to_pickle('sims/' + sim_type + '/' + ''.join(out_str) + '.bz2', compression="bz2")
 
@@ -360,7 +363,7 @@ if __name__ == "__main__":
     # --- End fixed parameters ----
 
     # Creating list of arguments
-    a = [[investments], ['garch', 'norm', 't', 'draw'], range(500), (1, 1.5),
+    a = [[investments], ['garch', 'norm', 'draw', 't'], range(100), (1, 1.5),
          (1.8, 2.0, 2.2), [SIGMA], [MR], (0.01, 0.02, 0.03), (0.04, 0.05, 0.06, 0.07, 0.08), (0, 0.002)]
 
     #main(investments_in, sim_type, random_state, gearing_cap, gamma, sigma, mr,
