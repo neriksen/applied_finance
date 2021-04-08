@@ -5,8 +5,15 @@ import math
 
 import numpy as np
 import pandas as pd
+import arch
 
 from debt import Debt
+
+import time
+from itertools import product
+from multiprocessing.pool import Pool
+import datetime as dt
+import simulate
 
 
 debt_available = {'SU': Debt(), 'Nordnet': Debt()}
@@ -296,7 +303,7 @@ def main(investments_in, sim_type, random_state, gearing_cap, gamma, sigma2, mr,
 
     # Reducing size of port
     # Setting period as index
-    #port.set_index('period', drop=True, inplace=True)
+    port.set_index('period', drop=True, inplace=True)
 
     # Dropping non-essential columns
     #port.drop(columns=['nip', 'pv_u', 'equity', 'pi_hat', 'g_hat'], inplace=True)
@@ -318,3 +325,20 @@ def main(investments_in, sim_type, random_state, gearing_cap, gamma, sigma2, mr,
         port.to_pickle('sims/' + sim_type + '/' + ''.join(out_str) + '.bz2', compression="bz2")
 
     return port
+
+
+def fetch_returns(investments, sim_type, random_seeds, GAMMA = 2.5,
+                   YEARLY_RF = 0.02, YEARLY_MR = 0.04, COST = 0.002,
+                   SIGMA = 0.02837, MR = 0.076, save_to_file = False):
+
+    # Creating list of arguments
+    a = [[investments], [sim_type], random_seeds, [1],
+         [GAMMA], [SIGMA], [MR], [YEARLY_RF], [YEARLY_MR], [COST], [save_to_file]]
+
+    comb_args = tuple(product(*a))
+
+    with Pool() as p:
+        res = p.starmap(main, comb_args, 2)
+        dfs = pd.concat(res)
+
+    return dfs
