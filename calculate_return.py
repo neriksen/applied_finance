@@ -2,18 +2,14 @@
 a leveraged investment strategy"""
 
 import math
+import time
+from multiprocessing.pool import Pool
+from itertools import product
 
 import numpy as np
 import pandas as pd
-import arch
 
 from debt import Debt
-
-import time
-from itertools import product
-from multiprocessing.pool import Pool
-import datetime as dt
-import simulate
 
 
 debt_available = {'SU': Debt(), 'Nordnet': Debt()}
@@ -161,7 +157,7 @@ def calculate_return(savings_in, returns, gearing_cap, pi_rf, pi_rm, rf):
     pp[0, dst] = ist
     pp[0, phase] = 1
 
-    # Looping over all reminaning periods
+    # Looping over all remaining periods
     for i in range(1, len_savings):
 
         # Period t > 0 primo
@@ -172,11 +168,11 @@ def calculate_return(savings_in, returns, gearing_cap, pi_rf, pi_rm, rf):
                 pp[i - 1, phase], pp[i - 1, pv_u],
                 pp[i - 1, tv_u], pp[i, savings], pp[i - 1, total_debt],
                 pi_rf, pp[i - 1, dst], gearing_cap, pp[i, period])
-
-            if 'SU' in debt_available.keys():
+            try:
                 pp[i, SU_debt] = debt_available['SU'].debt_amount
-            if 'Nordnet' in debt_available.keys():
                 pp[i, Nordnet_debt] = debt_available['Nordnet'].debt_amount
+            except KeyError:
+                pass
 
             pp[i, total_debt] = pp[i - 1, total_debt] + pp[i, new_debt]
             pp[i, nip] = pp[i, new_equity] + max(0, pp[i, new_debt])
@@ -197,7 +193,7 @@ def calculate_return(savings_in, returns, gearing_cap, pi_rf, pi_rm, rf):
             # pp[i, dst] = max(pp[i-1, dst], max(pp[i, tv_u]*target_pi, ist))  # Locked stock target at highest previous position
 
         else:
-            print('Warning: Fatal wipeout')
+            # In case of fatal wipeout attempt to reduce debt as much as possible with monthly cash flow
             pp[i:, [savings, cash, new_equity, new_debt, nip, pv_p,
                     interest, pv_u, tv_u, pi_hat, g_hat]] = 0
 
@@ -342,3 +338,16 @@ def fetch_returns(investments, sim_type, random_seeds, GAMMA = 2.5,
         dfs = pd.concat(res)
 
     return dfs
+
+
+if __name__ == "__main__":
+    spx = pd.read_csv('^GSPC.csv', index_col=0)
+    savings_year = pd.read_csv('investment_plan_year.csv', sep=';', index_col=0)
+    savings_year.index = pd.to_datetime(savings_year.index, format='%Y')
+    savings_month = (savings_year.resample('BMS').pad() / 12)['Earnings'].values
+    investments = savings_month * 0.05
+
+    tic = time.perf_counter()
+    test = fetch_returns(investments, 'garch', range(50))
+    toc = time.perf_counter()
+    print(f"Script took {toc - tic:0.5f} seconds")
