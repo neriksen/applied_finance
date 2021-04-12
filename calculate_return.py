@@ -32,13 +32,17 @@ def determine_investment(phase, pv_u, tv_u, s, td, pi_rf, dst, g, period):
         debt_repayment = min(td, s + stocks_sold)
         repayment_left = debt_repayment
 
-        if 'Nordnet' in debt_available.keys():
+        try:
             repayment = min(debt_repayment, debt_available['Nordnet'].debt_amount)
             debt_available['Nordnet'].prepayment(repayment)
             repayment_left = debt_repayment - repayment
+        except KeyError:
+            pass
 
-        if 'SU' in debt_available.keys():
+        try:
             debt_available['SU'].prepayment(repayment_left)
+        except KeyError:
+            pass
 
         leftover_savings = max(s - debt_repayment - stocks_sold, 0)
         return 0, leftover_savings, -debt_repayment
@@ -61,17 +65,22 @@ def nd(g, s, tv_u, td, dst, period):
 
     SU_amount, Nordnet_amount = 0, 0
 
-    if period <= 60 and 'SU' in debt_available.keys():
-        # Has SU already been taken?
-        SU_amount = min(3234, remaining_debt_needed)
-        debt_available['SU'].add_debt(SU_amount)
+    if period <= 60:
+        try:
+            # Has SU already been taken?
+            SU_amount = min(3234, remaining_debt_needed)
+            debt_available['SU'].add_debt(SU_amount)
 
-        remaining_debt_needed -= SU_amount
+            remaining_debt_needed -= SU_amount
+        except KeyError:
+            pass
 
-    if 'Nordnet' in debt_available.keys():
+    try:
         # Has Nordnet already been taken?
         Nordnet_amount = min(max(0, g * equity), remaining_debt_needed)
         debt_available['Nordnet'].add_debt(Nordnet_amount)
+    except KeyError:
+        pass
 
     return SU_amount + Nordnet_amount
 
@@ -109,7 +118,7 @@ def calc_pi(gamma, sigma2, mr, rate, cost=0):
 def calculate_return(savings_in, returns, gearing_cap, pi_rf, pi_rm, rf):
     # Running controls
     len_savings = len(savings_in)
-    assert len_savings == len(returns), 'Investment plan should be same no of periods as market'
+    #assert len_savings == len(returns), 'Investment plan should be same no of periods as market'
 
     # Setting up constants and dataframe for calculation
     ses_val = savings_in.sum()  # Possibly add more sophisticated discounting
@@ -131,12 +140,16 @@ def calculate_return(savings_in, returns, gearing_cap, pi_rf, pi_rm, rf):
     pp[0, market_returns] = 0
 
     # Initializing debt objects
-    if 'SU' in debt_available.keys():
+    try:
         debt_available['SU'] = Debt(rate_structure=[[0, 0, 0.04]], rate_structure_type='relative', initial_debt=0)
+    except KeyError:
+        pass
 
-    if 'Nordnet' in debt_available.keys():
+    try:
         debt_available['Nordnet'] = Debt(rate_structure=[[0, .4, 0.02], [.4, .6, 0.03], [.6, 0, 0.07]],
                                          rate_structure_type='relative', initial_debt=0)
+    except KeyError:
+        pass
 
     # Period 0 primo
     pp[0, cash] = 0
@@ -211,7 +224,7 @@ def calculate_return(savings_in, returns, gearing_cap, pi_rf, pi_rm, rf):
 def calculate100return(savings_in, returns):
     # Running controls
     len_savings = len(savings_in)
-    assert len_savings == len(returns), 'Investment plan should be same no of periods as market'
+    #assert len_savings == len(returns), 'Investment plan should be same no of periods as market'
 
     columns = ['period', 'savings', 'pv_p', 'market_returns', 'tv_u']
 
@@ -243,7 +256,7 @@ def calculate9050return(savings_in, returns, rf):
 
     # Running controls
     len_savings = len(savings_in)
-    assert len_savings == len(returns), 'Investment plan should be same no of periods as market'
+    #assert len_savings == len(returns), 'Investment plan should be same no of periods as market'
 
     columns = ['period', 'savings', 'cash', 'pv_p', 'market_returns', 'pv_u', 'tv_u', 'ratio']
     len_columns = len(columns)
@@ -341,6 +354,7 @@ def fetch_returns(investments, sim_type, random_seeds, GAMMA = 2.5,
 
 
 if __name__ == "__main__":
+    # ONLY USED FOR TESTING
     spx = pd.read_csv('^GSPC.csv', index_col=0)
     savings_year = pd.read_csv('investment_plan_year.csv', sep=';', index_col=0)
     savings_year.index = pd.to_datetime(savings_year.index, format='%Y')
@@ -348,6 +362,6 @@ if __name__ == "__main__":
     investments = savings_month * 0.05
 
     tic = time.perf_counter()
-    test = fetch_returns(investments, 'garch', range(50))
+    test = fetch_returns(investments, 'garch', range(1000))
     toc = time.perf_counter()
     print(f"Script took {toc - tic:0.5f} seconds")
