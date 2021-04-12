@@ -27,7 +27,7 @@ class Debt:
         if self.debt_amount <= 0:
             self.repaid = True
 
-    def calculate_interest(self, basis="", monthly=True):
+    def calculate_interest(self, basis="", monthly=True, deduction = 0.206):
         basis = self.debt_amount if basis == "" else basis
         interest_bill = 0
         rate_structure = relative_to_dollar_conversion(self.rate_structure, basis)\
@@ -41,7 +41,7 @@ class Debt:
             interest_bill += min(row[1], basis) * (row[2] if not monthly
                                                    else (math.exp(row[2]/12) -1))
 
-        return interest_bill
+        return interest_bill/(1+deduction)
 
 
 
