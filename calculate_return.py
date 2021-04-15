@@ -318,10 +318,10 @@ def main(investments_in, sim_type, random_state, gearing_cap, gamma, sigma2, mr,
     #port.drop(columns=['nip', 'pv_u', 'equity', 'pi_hat', 'g_hat'], inplace=True)
 
     # Convert selected float columns to integer values
-    #flt_cols = ['savings', 'cash', 'new_equity', 'new_debt', 'total_debt',
-    #            'pv_p', 'interest', 'tv_u', 'dst', 'phase', '100', '9050']
+    flt_cols = ['savings', 'cash', 'new_equity', 'new_debt', 'total_debt',
+                'pv_p', 'interest', 'tv_u', 'dst', 'phase', '100', '9050']
 
-    #port.loc[:, flt_cols] = port.loc[:, flt_cols].astype(int)
+    port.loc[:, flt_cols] = port.loc[:, flt_cols].astype(int)
     #for debt in ['SU_debt', 'Nordnet_debt']:
     #    try:
     #        port.loc[:, [debt]] = port.loc[:, [debt]].astype(int)
