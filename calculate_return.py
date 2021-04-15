@@ -8,6 +8,7 @@ from itertools import product
 
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 
 from debt import Debt
 
@@ -206,7 +207,6 @@ def calculate_return(savings_in, returns, gearing_cap, pi_rf, pi_rm, rf):
             # pp[i, dst] = max(pp[i-1, dst], max(pp[i, tv_u]*target_pi, ist))  # Locked stock target at highest previous position
 
         else:
-            # In case of fatal wipeout attempt to reduce debt as much as possible with monthly cash flow
             pp[i:, [savings, cash, new_equity, new_debt, nip, pv_p,
                     interest, pv_u, tv_u, pi_hat, g_hat]] = 0
 
@@ -295,7 +295,7 @@ def calculate9050return(savings_in, returns, rf):
 def main(investments_in, sim_type, random_state, gearing_cap, gamma, sigma2, mr,
          yearly_rf, yearly_rm, cost, save_to_file = False):
 
-    returns = np.load('market_lookup/' + sim_type + '/' + str(random_state) + '.npy')
+    returns = np.load('market_lookup/' + sim_type + '/' + str(random_state) + '.npy')[0:len(investments_in)]
 
     rf = math.exp(yearly_rf / 12) - 1
 
@@ -336,9 +336,18 @@ def main(investments_in, sim_type, random_state, gearing_cap, gamma, sigma2, mr,
     return port
 
 
-def fetch_returns(investments, sim_type, random_seeds, GAMMA = 2.5,
+def fetch_returns(sim_type, random_seeds, BEGINNING_SAVINGS = 9041,
+                   YEARLY_INFL_ADJUSTMENT = 0, YEARS = 60, GAMMA = 2.5,
                    YEARLY_RF = 0.02, YEARLY_MR = 0.04, COST = 0.002,
                    SIGMA = 0.02837, MR = 0.076, save_to_file = False):
+
+    SLOPE = (0.014885 + YEARLY_INFL_ADJUSTMENT/12) * BEGINNING_SAVINGS
+    CONVEXITY = -0.0000373649 * BEGINNING_SAVINGS
+    JERK = 0.000000025 * BEGINNING_SAVINGS
+    savings_func = lambda x: JERK * (x ** 3) + CONVEXITY * (x ** 2) + SLOPE * x + BEGINNING_SAVINGS
+
+    savings_val = np.array([savings_func(x) for x in range(0, YEARS*12 + 1)])
+    investments = savings_val * 0.05
 
     # Creating list of arguments
     a = [[investments], [sim_type], random_seeds, [1],
@@ -354,14 +363,14 @@ def fetch_returns(investments, sim_type, random_seeds, GAMMA = 2.5,
 
 
 if __name__ == "__main__":
-    # ONLY USED FOR TESTING
-    spx = pd.read_csv('^GSPC.csv', index_col=0)
-    savings_year = pd.read_csv('investment_plan_year.csv', sep=';', index_col=0)
-    savings_year.index = pd.to_datetime(savings_year.index, format='%Y')
-    savings_month = (savings_year.resample('BMS').pad() / 12)['Earnings'].values
-    investments = savings_month * 0.05
 
     tic = time.perf_counter()
-    test = fetch_returns(investments, 'garch', range(1000))
+    test = fetch_returns('garch', range(1000))
     toc = time.perf_counter()
     print(f"Script took {toc - tic:0.5f} seconds")
+    test = test.groupby(level=0).mean()
+    interest = (test.interest*12/test.total_debt).fillna(value=0)
+    #print(interest, test.total_debt)
+    plt.plot(interest)
+    plt.plot(test.total_debt/10000000)
+    plt.show()
