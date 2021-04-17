@@ -1,5 +1,6 @@
 import math
 
+
 def relative_to_dollar_conversion(rate_structure, basis):
     # Converts relative rate structure to dollar structure, to allow for calculation
     converted_structure = []
@@ -10,28 +11,27 @@ def relative_to_dollar_conversion(rate_structure, basis):
 
 
 class Debt:
-    def __init__(self, rate_structure=((0, 1000, 0.02)),
+    def __init__(self, rate_structure = ((0, 1000, 0.02)),
                  rate_structure_type='dollar', initial_debt=1000):
-        assert rate_structure_type in ['dollar', 'relative'],\
-            'Rate structure must be of type "dollar" or "relative"'
         self.debt_amount = initial_debt
-        self.rate_structure_type = rate_structure_type
-        self.rate_structure = rate_structure
-        self.repaid = False
+        self.dollar_rate_structure = rate_structure if rate_structure_type == 'dollar'\
+            else relative_to_dollar_conversion(rate_structure, initial_debt)
+
+    def change_rate_structure(self, rate_structure, rate_structure_type):
+        self.dollar_rate_structure = rate_structure if rate_structure_type == 'dollar'\
+            else relative_to_dollar_conversion(rate_structure, self.debt_amount)
 
     def add_debt(self, debt_amount):
         self.debt_amount += debt_amount
 
     def prepayment(self, prepayment_amount):
         self.debt_amount -= min(prepayment_amount, self.debt_amount)
-        if self.debt_amount <= 0:
-            self.repaid = True
 
-    def calculate_interest(self, basis="", monthly=True, deduction = 0.206):
+
+    def calculate_interest(self, basis="", monthly=True, deduction=0.206):
         basis = self.debt_amount if basis == "" else basis
         interest_bill = 0
-        rate_structure = relative_to_dollar_conversion(self.rate_structure, basis)\
-            if self.rate_structure_type != 'dollar' else self.rate_structure
+        rate_structure = self.dollar_rate_structure
 
         # Make sure entire debt is covered by rate structure
         rate_structure[-1][1] = self.debt_amount
