@@ -116,7 +116,7 @@ def calc_pi(gamma, sigma2, mr, rate, cost=0):
     return (mr - cost - rate) / (gamma * sigma2)
 
 
-def calculate_return(savings_in, returns, gearing_cap, pi_rf, pi_rm, rf):
+def calculate_return(savings_in, returns, gearing_cap, pi_rf, pi_rm, rf, pay_taxes):
     # Running controls
     len_savings = len(savings_in)
     #assert len_savings == len(returns), 'Investment plan should be same no of periods as market'
@@ -134,6 +134,8 @@ def calculate_return(savings_in, returns, gearing_cap, pi_rf, pi_rm, rf):
 
     period, savings, cash, new_equity, new_debt, total_debt, nip, pv_p, interest, market_returns, pv_u, tv_u, equity, dst, phase, pi_hat, g_hat, SU_debt, Nordnet_debt = range(
         len_columns)
+
+    tax_deduction = 0
 
     pp[:, period] = range(len_savings)
     pp[:, market_returns] = returns
@@ -177,7 +179,7 @@ def calculate_return(savings_in, returns, gearing_cap, pi_rf, pi_rm, rf):
         # Period t > 0 primo
         if not (pp[i - 1, tv_u] <= 0 and (pp[i - 1, interest] > pp[i, savings])):
 
-            pp[i, cash] = pp[i - 1, cash] * (1 + rf)
+            pp[i, cash] = pp[i - 1, cash] * (1 + rf*(1-0.42))
             pp[i, cash], pp[i, new_equity], pp[i, new_debt] = determine_investment(
                 pp[i - 1, phase], pp[i - 1, pv_u],
                 pp[i - 1, tv_u], pp[i, savings], pp[i - 1, total_debt],
@@ -197,7 +199,28 @@ def calculate_return(savings_in, returns, gearing_cap, pi_rf, pi_rm, rf):
                 debt_available['SU'].rate_structure = [[0, 0, 0.01]]
 
             pp[i, interest] = max(interest_all_debt(), 0)
-            pp[i, pv_u] = pp[i, pv_p] * (1 + pp[i, market_returns]) - pp[i, interest]
+            pp[i, pv_u] = pp[i, pv_p] * (1 + pp[i, market_returns])
+
+            # Check if we are in december to calculate taxes
+            if pay_taxes and pp[i, period] % 12 == 0:
+                year_return = pp[i, pv_u]-pp[i-12, pv_p]
+
+                if year_return >= 0:  # Case we earned money
+                    tax_base = max(0, year_return - tax_deduction)
+                    tax_bill = min(56600, tax_base)*0.27 + max(0, (tax_base-56600))*0.42
+
+                    # Deduct tax bill from portfolio value
+                    pp[i, pv_u] -= tax_bill
+
+                    # Update remaining tax deduction if any
+                    tax_deduction -= min(tax_deduction, year_return)
+
+                else:                  # Case we lost money
+                    # Update tax deduction
+                    tax_deduction += max(0, -year_return)
+
+            pp[i, pv_u] -= pp[i, interest]
+
             pp[i, tv_u] = pp[i, pv_u] + pp[i, cash]
             pp[i, equity] = pp[i, tv_u] - pp[i, total_debt]
             pp[i, pi_hat] = min(pp[i, pv_u] / ses_val, pp[i, pv_u] / pp[i, tv_u])
@@ -221,7 +244,7 @@ def calculate_return(savings_in, returns, gearing_cap, pi_rf, pi_rm, rf):
     return pp
 
 
-def calculate100return(savings_in, returns):
+def calculate100return(savings_in, returns, pay_taxes):
     # Running controls
     len_savings = len(savings_in)
     #assert len_savings == len(returns), 'Investment plan should be same no of periods as market'
@@ -231,6 +254,8 @@ def calculate100return(savings_in, returns):
     pp = np.empty((len_savings, len(columns)))
 
     period, savings, pv_p, market_returns, tv_u = range(5)
+
+    tax_deduction = 0
 
     pp[:, period] = range(len_savings)
     pp[:, market_returns] = returns
@@ -246,11 +271,29 @@ def calculate100return(savings_in, returns):
         # Period t > 0 ultimo
         pp[i, tv_u] = pp[i, pv_p] * (1 + pp[i, market_returns])
 
+        # Check if we are in december to calculate taxes
+        if pay_taxes and pp[i, period] % 12 == 0:
+            year_return = pp[i, tv_u] - pp[i - 12, pv_p]
+
+            if year_return >= 0:  # Case we earned money
+                tax_base = max(0, year_return - tax_deduction)
+                tax_bill = min(56600, tax_base) * 0.27 + max(0, (tax_base - 56600)) * 0.42
+
+                # Deduct tax bill from portfolio value
+                pp[i, tv_u] -= tax_bill
+
+                # Update remaining tax deduction if any
+                tax_deduction -= min(tax_deduction, year_return)
+
+            else:  # Case we lost money
+                # Update tax deduction
+                tax_deduction += max(0, -year_return)
+
     pp = pd.DataFrame(pp, columns=columns)
     return pp
 
 
-def calculate9050return(savings_in, returns, rf):
+def calculate9050return(savings_in, returns, rf, pay_taxes):
     # Strategy where 90% of value is initially invested in stocks, rest in risk free asset
     # Ratio of stocks falls linearly to 50% by age 65 and stays there
 
@@ -264,6 +307,8 @@ def calculate9050return(savings_in, returns, rf):
     pp = np.empty((len_savings, len_columns))
 
     period, savings, cash, pv_p, market_returns, pv_u, tv_u, ratio = range(len_columns)
+
+    tax_deduction = 0
 
     pp[:, period] = range(len_savings)
     pp[:, market_returns] = returns
@@ -281,10 +326,29 @@ def calculate9050return(savings_in, returns, rf):
 
         # Period t > 0 primo
         pp[i, pv_p] = pp[i - 1, pv_u] + pp[i, savings] * (ratio_val / 100)
-        pp[i, cash] = pp[i - 1, cash] * (1 + rf) + pp[i, savings] * (1 - ratio_val / 100)
+        pp[i, cash] = pp[i - 1, cash] * (1 + rf*(1-0.42)) + pp[i, savings] * (1 - ratio_val / 100)
 
         # Period t > 0 ultimo
         pp[i, pv_u] = pp[i, pv_p] * (1 + pp[i, market_returns])
+
+        # Check if we are in december to calculate taxes
+        if pay_taxes and pp[i, period] % 12 == 0:
+            year_return = pp[i, pv_u] - pp[i - 12, pv_p]
+
+            if year_return >= 0:  # Case we earned money
+                tax_base = max(0, year_return - tax_deduction)
+                tax_bill = min(56600, tax_base) * 0.27 + max(0, (tax_base - 56600)) * 0.42
+
+                # Deduct tax bill from portfolio value
+                pp[i, pv_u] -= tax_bill
+
+                # Update remaining tax deduction if any
+                tax_deduction -= min(tax_deduction, year_return)
+
+            else:  # Case we lost money
+                # Update tax deduction
+                tax_deduction += max(0, -year_return)
+
         pp[i, tv_u] = pp[i, pv_u] + pp[i, cash]
 
     pp = pd.DataFrame(pp, columns=columns)
@@ -293,7 +357,7 @@ def calculate9050return(savings_in, returns, rf):
 
 
 def main(investments_in, sim_type, random_state, gearing_cap, gamma, sigma2, mr,
-         yearly_rf, yearly_rm, cost, save_to_file = False):
+         yearly_rf, yearly_rm, cost, save_to_file = False, pay_taxes = True):
 
     returns = np.load('market_lookup/' + sim_type + '/' + str(random_state) + '.npy')[0:len(investments_in)]
 
@@ -302,9 +366,9 @@ def main(investments_in, sim_type, random_state, gearing_cap, gamma, sigma2, mr,
     pi_rf = calc_pi(gamma, sigma2, mr, yearly_rf, cost)
     pi_rm = calc_pi(gamma, sigma2, mr, yearly_rm, cost)
 
-    port = calculate_return(investments_in, returns, gearing_cap, pi_rf, pi_rm, rf)
-    port100 = calculate100return(investments_in, returns)
-    port9050 = calculate9050return(investments_in, returns, rf)
+    port = calculate_return(investments_in, returns, gearing_cap, pi_rf, pi_rm, rf, pay_taxes)
+    port100 = calculate100return(investments_in, returns, pay_taxes)
+    port9050 = calculate9050return(investments_in, returns, rf, pay_taxes)
 
     # Joining normal strategies on to geared
     port['100'] = port100['tv_u']
@@ -337,7 +401,7 @@ def main(investments_in, sim_type, random_state, gearing_cap, gamma, sigma2, mr,
 
 
 def fetch_returns(sim_type, random_seeds, BEGINNING_SAVINGS = 9041,
-                   YEARLY_INFL_ADJUSTMENT = 0, YEARS = 60, GAMMA = 2.5,
+                   YEARLY_INFL_ADJUSTMENT = 0.0, PAY_TAXES = True, YEARS = 60, GAMMA = 2.5,
                    YEARLY_RF = 0.02, YEARLY_MR = 0.04, COST = 0.002,
                    SIGMA = 0.02837, MR = 0.076, save_to_file = False):
 
@@ -351,7 +415,8 @@ def fetch_returns(sim_type, random_seeds, BEGINNING_SAVINGS = 9041,
 
     # Creating list of arguments
     a = [[investments], [sim_type], random_seeds, [1],
-         [GAMMA], [SIGMA], [MR], [YEARLY_RF], [YEARLY_MR], [COST], [save_to_file]]
+         [GAMMA], [SIGMA], [MR], [YEARLY_RF], [YEARLY_MR], [COST],
+         [save_to_file], [PAY_TAXES]]
 
     comb_args = tuple(product(*a))
 
@@ -365,12 +430,18 @@ def fetch_returns(sim_type, random_seeds, BEGINNING_SAVINGS = 9041,
 if __name__ == "__main__":
 
     tic = time.perf_counter()
-    test = fetch_returns('garch', range(1000))
+    test = fetch_returns('garch', range(500), PAY_TAXES=False)
+    test2 = fetch_returns('garch', range(500), PAY_TAXES=True)
     toc = time.perf_counter()
     print(f"Script took {toc - tic:0.5f} seconds")
     test = test.groupby(level=0).mean()
-    interest = (test.interest*12/test.total_debt).fillna(value=0)
+    test2 = test2.groupby(level=0).mean()
+    #interest = (test.interest*12/test.total_debt).fillna(value=0)
     #print(interest, test.total_debt)
-    plt.plot(interest)
-    plt.plot(test.total_debt/10000000)
+    #plt.plot(test['tv_u'] - test['100'])
+    #plt.plot(test2['tv_u'] - test2['100'])
+    plt.plot(test2['100'])
+    plt.plot(test2['tv_u'])
+
+    #plt.plot(test['9050'])
     plt.show()
