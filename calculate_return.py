@@ -132,8 +132,9 @@ def calculate_return(savings_in, returns, gearing_cap, pi_rf, pi_rm, rf, pay_tax
 
     pp = np.zeros((len_savings, len_columns))
 
-    period, savings, cash, new_equity, new_debt, total_debt, nip, pv_p, interest, market_returns, pv_u, tv_u, equity, dst, phase, pi_hat, g_hat, SU_debt, Nordnet_debt = range(
-        len_columns)
+    period, savings, cash, new_equity, new_debt, total_debt, nip, pv_p, interest, \
+    market_returns, pv_u, tv_u, equity, dst, phase, pi_hat, g_hat, SU_debt, Nordnet_debt\
+        = range(len_columns)
 
     tax_deduction = 0
 
@@ -196,7 +197,7 @@ def calculate_return(savings_in, returns, gearing_cap, pi_rf, pi_rm, rf, pay_tax
 
             # Period t > 0 ultimo
             if pp[i, period] == 60 and 'SU' in debt_available.keys():
-                debt_available['SU'].rate_structure = [[0, 0, 0.01]]
+                debt_available['SU'].change_rate_structure([[0, 0, 0.01]], 'dollar')
 
             pp[i, interest] = max(interest_all_debt(), 0)
             pp[i, pv_u] = pp[i, pv_p] * (1 + pp[i, market_returns])
@@ -420,6 +421,8 @@ def fetch_returns(sim_type, random_seeds, BEGINNING_SAVINGS = 9041,
 
     comb_args = tuple(product(*a))
 
+    #dfs = main(*comb_args[0])
+
     with Pool() as p:
         res = p.starmap(main, comb_args, 2)
         dfs = pd.concat(res)
@@ -429,19 +432,34 @@ def fetch_returns(sim_type, random_seeds, BEGINNING_SAVINGS = 9041,
 
 if __name__ == "__main__":
 
+    import cProfile, pstats
+    profiler = cProfile.Profile()
+    profiler.enable()
     tic = time.perf_counter()
-    test = fetch_returns('garch', range(500), PAY_TAXES=False)
-    test2 = fetch_returns('garch', range(500), PAY_TAXES=True)
+    fetch_returns('garch', range(100))
     toc = time.perf_counter()
+    profiler.disable()
+    stats = pstats.Stats(profiler)
+    stats.strip_dirs()
+    stats.sort_stats('cumtime')
+    stats.reverse_order()
+    stats.print_stats()
+
     print(f"Script took {toc - tic:0.5f} seconds")
-    test = test.groupby(level=0).mean()
-    test2 = test2.groupby(level=0).mean()
+
+    # tic = time.perf_counter()
+    # test = fetch_returns('garch', range(500), PAY_TAXES=False)
+    # test2 = fetch_returns('garch', range(500), PAY_TAXES=True)
+    # toc = time.perf_counter()
+    # print(f"Script took {toc - tic:0.5f} seconds")
+    # test = test.groupby(level=0).mean()
+    # test2 = test2.groupby(level=0).mean()
     #interest = (test.interest*12/test.total_debt).fillna(value=0)
     #print(interest, test.total_debt)
     #plt.plot(test['tv_u'] - test['100'])
     #plt.plot(test2['tv_u'] - test2['100'])
-    plt.plot(test2['100'])
-    plt.plot(test2['tv_u'])
+    #plt.plot(test2['100'])
+    #plt.plot(test2['tv_u'])
 
     #plt.plot(test['9050'])
-    plt.show()
+    #plt.show()
