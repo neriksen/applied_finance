@@ -13130,6 +13130,12 @@ div#notebook {
 <span class="kn">import</span> <span class="nn">datetime</span> <span class="k">as</span> <span class="nn">dt</span>
 <span class="kn">import</span> <span class="nn">simulate</span>
 <span class="kn">import</span> <span class="nn">ipywidgets</span> <span class="k">as</span> <span class="nn">widgets</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="kn">from</span> <span class="nn">ipywidgets</span> <span class="kn">import</span> <span class="n">interact</span>
+<span class="kn">from</span> <span class="nn">ipywidgets</span> <span class="kn">import</span> <span class="n">fixed</span>
+<span class="kn">import</span> <span class="nn">pathlib</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">()</span><span class="o">.</span><span class="n">absolute</span><span class="p">())</span>
+
 
 <span class="c1"># Creating returns to simulate</span>
 <span class="n">spx</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s1">&#39;^GSPC.csv&#39;</span><span class="p">,</span> <span class="n">index_col</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
@@ -13168,12 +13174,14 @@ div#notebook {
 
 <div class="inner_cell">
     <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="k">def</span> <span class="nf">plot_sims</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">sim_type</span><span class="p">,</span> <span class="n">random_seeds</span><span class="p">,</span> <span class="n">BEGINNING_SAVINGS</span> <span class="o">=</span> <span class="mi">9041</span><span class="p">,</span>
+<div class=" highlight hl-ipython3"><pre><span></span><span class="kn">import</span> <span class="nn">calculate_return</span>
+
+<span class="k">def</span> <span class="nf">plot_sims</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">sim_type</span><span class="p">,</span> <span class="n">random_seeds</span><span class="p">,</span> <span class="n">BEGINNING_SAVINGS</span> <span class="o">=</span> <span class="mi">9041</span><span class="p">,</span>
                    <span class="n">YEARLY_INFL_ADJUSTMENT</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">PAY_TAXES</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">YEARS</span> <span class="o">=</span> <span class="mi">60</span><span class="p">,</span> <span class="n">GAMMA</span> <span class="o">=</span> <span class="mf">2.5</span><span class="p">,</span>
                    <span class="n">YEARLY_RF</span> <span class="o">=</span> <span class="mf">0.02</span><span class="p">,</span> <span class="n">YEARLY_MR</span> <span class="o">=</span> <span class="mf">0.04</span><span class="p">,</span> <span class="n">COST</span> <span class="o">=</span> <span class="mf">0.002</span><span class="p">,</span>
                    <span class="n">SIGMA</span> <span class="o">=</span> <span class="mf">0.02837</span><span class="p">,</span> <span class="n">MR</span> <span class="o">=</span> <span class="mf">0.076</span><span class="p">):</span>
     
-    <span class="n">ports</span> <span class="o">=</span> <span class="n">cr</span><span class="o">.</span><span class="n">fetch_returns</span><span class="p">(</span><span class="n">sim_type</span><span class="p">,</span> <span class="n">random_seeds</span><span class="p">,</span> <span class="n">BEGINNING_SAVINGS</span><span class="p">,</span>
+    <span class="n">ports</span> <span class="o">=</span> <span class="n">calculate_return</span><span class="o">.</span><span class="n">fetch_returns</span><span class="p">(</span><span class="n">sim_type</span><span class="p">,</span> <span class="n">random_seeds</span><span class="p">,</span> <span class="n">BEGINNING_SAVINGS</span><span class="p">,</span>
                    <span class="n">YEARLY_INFL_ADJUSTMENT</span><span class="p">,</span> <span class="n">PAY_TAXES</span><span class="p">,</span> <span class="n">YEARS</span><span class="p">,</span> <span class="n">GAMMA</span><span class="p">,</span>
                    <span class="n">YEARLY_RF</span><span class="p">,</span> <span class="n">YEARLY_MR</span><span class="p">,</span> <span class="n">COST</span><span class="p">,</span>
                    <span class="n">SIGMA</span><span class="p">,</span> <span class="n">MR</span><span class="p">)</span>
@@ -13198,13 +13206,11 @@ div#notebook {
 
 <div class="inner_cell">
     <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1">#plot_sims([&#39;tv_u&#39;], &#39;garch&#39;, range(100))</span>
 <span class="kn">from</span> <span class="nn">ipywidgets</span> <span class="kn">import</span> <span class="n">interact</span>
 <span class="kn">from</span> <span class="nn">ipywidgets</span> <span class="kn">import</span> <span class="n">fixed</span>
-<span class="kn">import</span> <span class="nn">ipywidgets</span> <span class="k">as</span> <span class="nn">widgets</span>
-<span class="kn">import</span> <span class="nn">calculate_return</span> <span class="k">as</span> <span class="nn">cr</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
 
-<span class="c1">#plot_sims([&#39;tv_u&#39;], &#39;garch&#39;, range(100))</span>
 
 <span class="n">interactive_plot</span> <span class="o">=</span> <span class="n">interact</span><span class="p">(</span><span class="n">plot_sims</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="n">fixed</span><span class="p">([</span><span class="s1">&#39;tv_u&#39;</span><span class="p">,</span> <span class="s1">&#39;100&#39;</span><span class="p">,</span> <span class="s1">&#39;9050&#39;</span><span class="p">]),</span> <span class="n">sim_type</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;garch&#39;</span><span class="p">,</span> <span class="s1">&#39;t&#39;</span><span class="p">,</span> <span class="s1">&#39;norm&#39;</span><span class="p">,</span> <span class="s1">&#39;draw&#39;</span><span class="p">],</span>
                                                                <span class="n">random_seeds</span> <span class="o">=</span> <span class="n">fixed</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">15</span><span class="p">)),</span> 
@@ -13216,39 +13222,6 @@ div#notebook {
 </pre></div>
 
     </div>
-</div>
-</div>
-
-<div class="output_wrapper">
-<div class="output">
-
-
-<div class="output_area">
-
-    
-
-
-
-  <div class="output_subarea output_widget_view ">
-    <button class="js-nbinteract-widget">
-      Loading widgets...
-    </button>
-  </div>
-
-</div>
-
-<div class="output_area">
-
-    
-
-
-
-<div class="output_text output_subarea output_execute_result">
-<pre>&lt;function __main__.plot_sims(y, sim_type, random_seeds, BEGINNING_SAVINGS=9041, YEARLY_INFL_ADJUSTMENT=0.0, PAY_TAXES=True, YEARS=60, GAMMA=2.5, YEARLY_RF=0.02, YEARLY_MR=0.04, COST=0.002, SIGMA=0.02837, MR=0.076)&gt;</pre>
-</div>
-
-</div>
-
 </div>
 </div>
 
@@ -13301,7 +13274,7 @@ div#notebook {
     }
 
     var interact = new window.NbInteract({
-      spec: 'SamLau95/nbinteract-image/master',
+      spec: 'neriksen/applied_finance/master',
       baseUrl: 'https://mybinder.org',
       provider: 'gh',
     })
