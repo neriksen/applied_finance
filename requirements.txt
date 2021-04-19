@@ -1,3 +1,6 @@
 numpy
 ipywidgets
 nbinteract
+calculate_return
+simulate
+debt
