@@ -13126,40 +13126,17 @@ div#notebook {
 
 <div class="inner_cell">
     <div class="input_area">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
-<span class="kn">import</span> <span class="nn">datetime</span> <span class="k">as</span> <span class="nn">dt</span>
-<span class="kn">import</span> <span class="nn">simulate</span>
-<span class="kn">import</span> <span class="nn">ipywidgets</span> <span class="k">as</span> <span class="nn">widgets</span>
+<div class=" highlight hl-ipython3"><pre><span></span><span class="kn">import</span> <span class="nn">ipywidgets</span> <span class="k">as</span> <span class="nn">widgets</span>
 <span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
 <span class="kn">from</span> <span class="nn">ipywidgets</span> <span class="kn">import</span> <span class="n">interact</span>
 <span class="kn">from</span> <span class="nn">ipywidgets</span> <span class="kn">import</span> <span class="n">fixed</span>
 <span class="kn">import</span> <span class="nn">calculate_return</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;/usr/local/lib/python3.7/dist-packages&#39;</span><span class="p">)</span>
+
 <span class="c1">#import pathlib</span>
 <span class="c1">#print(pathlib.Path().absolute())</span>
 
-
-<span class="c1"># Creating returns to simulate</span>
-<span class="n">spx</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s1">&#39;^GSPC.csv&#39;</span><span class="p">,</span> <span class="n">index_col</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-<span class="n">savings_year</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s1">&#39;investment_plan_year.csv&#39;</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s1">&#39;;&#39;</span><span class="p">,</span> <span class="n">index_col</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-<span class="n">savings_year</span><span class="o">.</span><span class="n">index</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">(</span><span class="n">savings_year</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s1">&#39;%Y&#39;</span><span class="p">)</span>
-<span class="n">savings_month</span> <span class="o">=</span> <span class="p">(</span><span class="n">savings_year</span><span class="o">.</span><span class="n">resample</span><span class="p">(</span><span class="s1">&#39;BMS&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">pad</span><span class="p">()</span> <span class="o">/</span> <span class="mi">12</span><span class="p">)[</span><span class="s1">&#39;Earnings&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
-
-<span class="n">YEARLY_RF</span> <span class="o">=</span> <span class="mf">0.015</span>
-<span class="n">YEARLY_RM</span> <span class="o">=</span> <span class="mf">0.04</span>  <span class="c1"># Weighted average of margin rates</span>
-
-<span class="c1"># --- Fixed parameters ----</span>
-<span class="n">investments</span> <span class="o">=</span> <span class="n">savings_month</span> <span class="o">*</span> <span class="mf">0.05</span>
-
-<span class="n">START</span> <span class="o">=</span> <span class="n">dt</span><span class="o">.</span><span class="n">date</span><span class="p">(</span><span class="mi">2020</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-<span class="n">END</span> <span class="o">=</span> <span class="n">dt</span><span class="o">.</span><span class="n">date</span><span class="p">(</span><span class="mi">2070</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">31</span><span class="p">)</span>
-<span class="n">Market</span> <span class="o">=</span> <span class="n">simulate</span><span class="o">.</span><span class="n">Market</span><span class="p">(</span><span class="n">spx</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="o">-</span><span class="mi">7500</span><span class="p">:,</span> <span class="o">-</span><span class="mi">2</span><span class="p">],</span> <span class="n">START</span><span class="p">,</span> <span class="n">END</span><span class="p">)</span>
-
-<span class="n">GAMMA</span> <span class="o">=</span> <span class="mf">2.5</span>
-<span class="n">SIGMA</span> <span class="o">=</span> <span class="n">Market</span><span class="o">.</span><span class="n">yearly</span><span class="o">.</span><span class="n">pct_change</span><span class="p">()</span><span class="o">.</span><span class="n">std</span><span class="p">()</span> <span class="o">**</span> <span class="mi">2</span>
-<span class="n">MR</span> <span class="o">=</span> <span class="p">(</span><span class="n">Market</span><span class="o">.</span><span class="n">yearly</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="n">Market</span><span class="o">.</span><span class="n">yearly</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">**</span> <span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">Market</span><span class="o">.</span><span class="n">yearly</span><span class="p">))</span> <span class="o">-</span> <span class="mi">1</span>
-<span class="n">COST</span> <span class="o">=</span> <span class="mi">0</span>
-<span class="c1"># --- End fixed parameters ----</span>
 
 <span class="k">def</span> <span class="nf">plot_sims</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">sim_type</span><span class="p">,</span> <span class="n">random_seeds</span><span class="p">,</span> <span class="n">BEGINNING_SAVINGS</span> <span class="o">=</span> <span class="mi">9041</span><span class="p">,</span>
                    <span class="n">YEARLY_INFL_ADJUSTMENT</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">PAY_TAXES</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">YEARS</span> <span class="o">=</span> <span class="mi">60</span><span class="p">,</span> <span class="n">GAMMA</span> <span class="o">=</span> <span class="mf">2.5</span><span class="p">,</span>
