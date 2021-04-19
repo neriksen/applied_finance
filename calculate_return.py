@@ -410,7 +410,7 @@ def fetch_returns(sim_type, random_seeds, BEGINNING_SAVINGS = 9041,
     CONVEXITY = -0.0000373649 * BEGINNING_SAVINGS
     JERK = 0.000000025 * BEGINNING_SAVINGS
     savings_func = lambda x: JERK * (x ** 3) + CONVEXITY * (x ** 2) + SLOPE * x + BEGINNING_SAVINGS
-
+        
     savings_val = np.array([savings_func(x) for x in range(0, YEARS*12 + 1)])
     investments = savings_val * 0.05
 
