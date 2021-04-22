@@ -127,7 +127,7 @@ def calc_pi(gamma, sigma2, mr, rate, cost=0):
     return (mr - cost - rate) / (gamma * sigma2)
 
 
-def calculate_return(savings_in, returns, gearing_cap, pi_rf, pi_rm, rf, pay_taxes, dual_phase):
+def calculate_return(savings_in, returns, gearing_cap, pi_rf, pi_rm, rf, pay_taxes, debt_pct_offset, dual_phase):
     # Running controls
     len_savings = len(savings_in)
     #assert len_savings == len(returns), 'Investment plan should be same no of periods as market'
@@ -159,12 +159,15 @@ def calculate_return(savings_in, returns, gearing_cap, pi_rf, pi_rm, rf, pay_tax
 
     # Initializing debt objects
     try:
-        debt_available['SU'] = Debt(rate_structure=[[0, 0, 0.04]], rate_structure_type='relative', initial_debt=0)
+        debt_available['SU'] = Debt(rate_structure=[[0, 0, 0.04 + debt_pct_offset]],
+                                    rate_structure_type='relative', initial_debt=0)
     except KeyError:
         pass
 
     try:
-        debt_available['Nordnet'] = Debt(rate_structure=[[0, .4, 0.02], [.4, .6, 0.03], [.6, 0, 0.07]],
+        debt_available['Nordnet'] = Debt(rate_structure=[[0, .4, 0.02 + debt_pct_offset],
+                                                         [.4, .6, 0.03 + debt_pct_offset],
+                                                         [.6, 0, 0.07 + debt_pct_offset]],
                                          rate_structure_type='relative', initial_debt=0)
     except KeyError:
         pass
@@ -211,7 +214,7 @@ def calculate_return(savings_in, returns, gearing_cap, pi_rf, pi_rm, rf, pay_tax
 
             # Period t > 0 ultimo
             if pp[i, period] == 60 and 'SU' in debt_available.keys():
-                debt_available['SU'].change_rate_structure([[0, 0, 0.01]], 'dollar')
+                debt_available['SU'].change_rate_structure([[0, 0, 0.01 + debt_pct_offset]], 'dollar')
 
             pp[i, interest] = max(interest_all_debt(pp[i, period]), 0)
             pp[i, pv_u] = pp[i, pv_p] * (1 + pp[i, market_returns])
@@ -372,7 +375,13 @@ def calculate9050return(savings_in, returns, rf, pay_taxes):
 
 
 def main(investments_in, sim_type, random_state, gearing_cap, gamma, sigma2, mr,
-         yearly_rf, yearly_rm, cost, save_to_file = False, pay_taxes = True, seed_index=True):
+         yearly_rf, yearly_rm, cost, debt_pct_offset, save_to_file = False, pay_taxes = True, seed_index=True):
+
+    '''
+      a = [[investments], [sim_type], random_seeds, [1],
+         [GAMMA], [SIGMA], [MR], [YEARLY_RF], [YEARLY_MR], [COST],
+         [save_to_file], [PAY_TAXES], [DEBT_PCT_OFFSET], [SEED_INDEX]]
+    '''
 
     returns = np.load('market_lookup/' + sim_type + '/' + str(random_state) + '.npy')[0:len(investments_in)]
 
@@ -381,8 +390,10 @@ def main(investments_in, sim_type, random_state, gearing_cap, gamma, sigma2, mr,
     pi_rf = calc_pi(gamma, sigma2, mr, yearly_rf, cost)
     pi_rm = calc_pi(gamma, sigma2, mr, yearly_rm, cost)
 
-    port = calculate_return(investments_in, returns, gearing_cap, pi_rf, pi_rm, rf, pay_taxes, dual_phase = True)
-    port_single = calculate_return(investments_in, returns, gearing_cap, pi_rf, pi_rm, rf, pay_taxes, dual_phase=False)
+    port = calculate_return(investments_in, returns, gearing_cap, pi_rf, pi_rm, rf,
+                            pay_taxes, debt_pct_offset, dual_phase = True)
+    port_single = calculate_return(investments_in, returns, gearing_cap, pi_rf, pi_rm, rf,
+                                   pay_taxes, debt_pct_offset, dual_phase=False)
     port100 = calculate100return(investments_in, returns, pay_taxes)
     port9050 = calculate9050return(investments_in, returns, rf, pay_taxes)
 
@@ -424,7 +435,7 @@ def main(investments_in, sim_type, random_state, gearing_cap, gamma, sigma2, mr,
 
 def fetch_returns(sim_type, random_seeds, BEGINNING_SAVINGS = 9000,
                    YEARLY_INCOME_GROWTH = 0.0, PAY_TAXES = True, YEARS = 50, GAMMA = 2,
-                   YEARLY_RF = 0.02, YEARLY_MR = 0.023, COST = 0.002,
+                   YEARLY_RF = 0.02, YEARLY_MR = 0.023, COST = 0.002, DEBT_PCT_OFFSET = 0.0,
                    SIGMA = 0.02837, MR = 0.076, save_to_file = False, SEED_INDEX = True):
 
     SLOPE = (0.014885 + YEARLY_INCOME_GROWTH/12) * BEGINNING_SAVINGS
@@ -440,7 +451,7 @@ def fetch_returns(sim_type, random_seeds, BEGINNING_SAVINGS = 9000,
 
     # Creating list of arguments
     a = [[investments], [sim_type], random_seeds, [1],
-         [GAMMA], [SIGMA], [MR], [YEARLY_RF], [YEARLY_MR], [COST],
+         [GAMMA], [SIGMA], [MR], [YEARLY_RF], [YEARLY_MR], [COST], [DEBT_PCT_OFFSET],
          [save_to_file], [PAY_TAXES], [SEED_INDEX]]
 
     comb_args = tuple(product(*a))
