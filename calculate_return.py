@@ -369,7 +369,7 @@ def calculate9050return(savings_in, returns, rf, pay_taxes):
 
 
 def main(investments_in, sim_type, random_state, gearing_cap, gamma, sigma2, mr,
-         yearly_rf, yearly_rm, cost, save_to_file = False, pay_taxes = True):
+         yearly_rf, yearly_rm, cost, save_to_file = False, pay_taxes = True, seed_index=True):
 
     returns = np.load('market_lookup/' + sim_type + '/' + str(random_state) + '.npy')[0:len(investments_in)]
 
@@ -385,10 +385,14 @@ def main(investments_in, sim_type, random_state, gearing_cap, gamma, sigma2, mr,
     # Joining normal strategies on to geared
     port['100'] = port100['tv_u']
     port['9050'] = port9050['tv_u']
+    port['random_state'] = random_state
 
     # Reducing size of port
     # Setting period as index
-    port.set_index('period', drop=True, inplace=True)
+    if seed_index:
+        port.set_index(['random_state', 'period'], drop=True, inplace=True)
+    else:
+        port.set_index('period', drop=True, inplace=True)
 
     # Dropping non-essential columns
     #port.drop(columns=['nip', 'pv_u', 'equity', 'pi_hat', 'g_hat'], inplace=True)
@@ -415,7 +419,7 @@ def main(investments_in, sim_type, random_state, gearing_cap, gamma, sigma2, mr,
 def fetch_returns(sim_type, random_seeds, BEGINNING_SAVINGS = 9041,
                    YEARLY_INFL_ADJUSTMENT = 0.0, PAY_TAXES = True, YEARS = 60, GAMMA = 2.5,
                    YEARLY_RF = 0.02, YEARLY_MR = 0.04, COST = 0.002,
-                   SIGMA = 0.02837, MR = 0.076, save_to_file = False):
+                   SIGMA = 0.02837, MR = 0.076, save_to_file = False, SEED_INDEX = True):
 
     SLOPE = (0.014885 + YEARLY_INFL_ADJUSTMENT/12) * BEGINNING_SAVINGS
     CONVEXITY = -0.0000373649 * BEGINNING_SAVINGS
@@ -428,7 +432,7 @@ def fetch_returns(sim_type, random_seeds, BEGINNING_SAVINGS = 9041,
     # Creating list of arguments
     a = [[investments], [sim_type], random_seeds, [1],
          [GAMMA], [SIGMA], [MR], [YEARLY_RF], [YEARLY_MR], [COST],
-         [save_to_file], [PAY_TAXES]]
+         [save_to_file], [PAY_TAXES], [SEED_INDEX]]
 
     comb_args = tuple(product(*a))
 
