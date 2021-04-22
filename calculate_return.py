@@ -242,6 +242,7 @@ def calculate_return(savings_in, returns, gearing_cap, pi_rf, pi_rm, rf, pay_tax
             # pp[i, dst] = max(pp[i-1, dst], max(pp[i, tv_u]*target_pi, ist))  # Locked stock target at highest previous position
 
         else:
+            print('warning: catastrophic wipeout')
             pp[i:, [savings, cash, new_equity, new_debt, nip, pv_p,
                     interest, pv_u, tv_u, pi_hat, g_hat]] = 0
 
@@ -416,18 +417,21 @@ def main(investments_in, sim_type, random_state, gearing_cap, gamma, sigma2, mr,
     return port
 
 
-def fetch_returns(sim_type, random_seeds, BEGINNING_SAVINGS = 9041,
-                   YEARLY_INFL_ADJUSTMENT = 0.0, PAY_TAXES = True, YEARS = 60, GAMMA = 2.5,
-                   YEARLY_RF = 0.02, YEARLY_MR = 0.04, COST = 0.002,
+def fetch_returns(sim_type, random_seeds, BEGINNING_SAVINGS = 9000,
+                   YEARLY_INCOME_GROWTH = 0.0, PAY_TAXES = True, YEARS = 50, GAMMA = 2,
+                   YEARLY_RF = 0.02, YEARLY_MR = 0.023, COST = 0.002,
                    SIGMA = 0.02837, MR = 0.076, save_to_file = False, SEED_INDEX = True):
 
-    SLOPE = (0.014885 + YEARLY_INFL_ADJUSTMENT/12) * BEGINNING_SAVINGS
+    SLOPE = (0.014885 + YEARLY_INCOME_GROWTH/12) * BEGINNING_SAVINGS
     CONVEXITY = -0.0000373649 * BEGINNING_SAVINGS
     JERK = 0.000000025 * BEGINNING_SAVINGS
     savings_func = lambda x: JERK * (x ** 3) + CONVEXITY * (x ** 2) + SLOPE * x + BEGINNING_SAVINGS
         
     savings_val = np.array([savings_func(x) for x in range(0, YEARS*12 + 1)])
     investments = savings_val * 0.05
+
+    print('pi_rf: ', f'{calc_pi(GAMMA, SIGMA, MR, YEARLY_RF)*100: .2f}%')
+    print('pi_rm: ', f'{calc_pi(GAMMA, SIGMA, MR, YEARLY_MR)*100: .2f}%')
 
     # Creating list of arguments
     a = [[investments], [sim_type], random_seeds, [1],
