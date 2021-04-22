@@ -86,10 +86,21 @@ def nd(g, s, tv_u, td, dst, period):
     return SU_amount + Nordnet_amount
 
 
-def interest_all_debt():
+def interest_all_debt(period):
     interest_bill = 0
-    for debt in debt_available.values():
-        interest_bill += debt.calculate_interest()
+    try:
+        if period <= 60:
+            # No deduction for SU debt while studying
+            interest_bill += debt_available['SU'].calculate_interest(deduction=0)
+        else:
+            interest_bill += debt_available['SU'].calculate_interest()
+    except KeyError:
+        pass
+
+    try:
+        interest_bill += debt_available['Nordnet'].calculate_interest(deduction=0)
+    except KeyError:
+        pass
 
     return interest_bill
 
@@ -167,7 +178,7 @@ def calculate_return(savings_in, returns, gearing_cap, pi_rf, pi_rm, rf, pay_tax
     pp[0, pi_hat] = pp[0, pv_p] / ses_val
 
     # Period 0 ultimo
-    pp[0, interest] = pp[0, new_debt] * max(interest_all_debt(), 0)
+    pp[0, interest] = pp[0, new_debt] * max(interest_all_debt(period=0), 0)
     pp[0, pv_u] = pp[0, pv_p]
     pp[0, tv_u] = pp[0, pv_u] + pp[0, cash]
     pp[0, equity] = pp[0, tv_u] - pp[0, total_debt]
@@ -199,7 +210,7 @@ def calculate_return(savings_in, returns, gearing_cap, pi_rf, pi_rm, rf, pay_tax
             if pp[i, period] == 60 and 'SU' in debt_available.keys():
                 debt_available['SU'].change_rate_structure([[0, 0, 0.01]], 'dollar')
 
-            pp[i, interest] = max(interest_all_debt(), 0)
+            pp[i, interest] = max(interest_all_debt(pp[i, period]), 0)
             pp[i, pv_u] = pp[i, pv_p] * (1 + pp[i, market_returns])
 
             # Check if we are in december to calculate taxes
