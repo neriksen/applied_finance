@@ -105,7 +105,7 @@ def interest_all_debt(period):
     return interest_bill
 
 
-def phase_check(phase, pi_rf, pi_rm, pi_hat, td):
+def phase_check(phase, pi_rf, pi_rm, pi_hat, td, dual_phase):
     if phase == 4:
         return 4
 
@@ -118,7 +118,7 @@ def phase_check(phase, pi_rf, pi_rm, pi_hat, td):
 
     # if target has been reached and no debt remains
     # is the value still above the target?
-    if pi_hat < pi_rf:
+    if pi_hat < pi_rf and dual_phase:
         return 3
     return 4
 
@@ -127,10 +127,13 @@ def calc_pi(gamma, sigma2, mr, rate, cost=0):
     return (mr - cost - rate) / (gamma * sigma2)
 
 
-def calculate_return(savings_in, returns, gearing_cap, pi_rf, pi_rm, rf, pay_taxes):
+def calculate_return(savings_in, returns, gearing_cap, pi_rf, pi_rm, rf, pay_taxes, dual_phase):
     # Running controls
     len_savings = len(savings_in)
     #assert len_savings == len(returns), 'Investment plan should be same no of periods as market'
+
+    if not dual_phase:
+        pi_rf = pi_rm
 
     # Setting up constants and dataframe for calculation
     ses_val = savings_in.sum()  # Possibly add more sophisticated discounting
@@ -236,7 +239,7 @@ def calculate_return(savings_in, returns, gearing_cap, pi_rf, pi_rm, rf, pay_tax
             pp[i, tv_u] = pp[i, pv_u] + pp[i, cash]
             pp[i, equity] = pp[i, tv_u] - pp[i, total_debt]
             pp[i, pi_hat] = min(pp[i, pv_u] / ses_val, pp[i, pv_u] / pp[i, tv_u])
-            pp[i, phase] = phase_check(pp[i - 1, phase], pi_rf, pi_rm, pp[i, pi_hat], pp[i, total_debt])
+            pp[i, phase] = phase_check(pp[i - 1, phase], pi_rf, pi_rm, pp[i, pi_hat], pp[i, total_debt], dual_phase)
             target_pi = pi_rm if pp[i - 1, phase] < 3 else pi_rf
             pp[i, dst] = max(pp[i, tv_u] * target_pi, ist)  # Moving stock target
             # pp[i, dst] = max(pp[i-1, dst], max(pp[i, tv_u]*target_pi, ist))  # Locked stock target at highest previous position
@@ -253,7 +256,6 @@ def calculate_return(savings_in, returns, gearing_cap, pi_rf, pi_rm, rf, pay_tax
 
     pp[:, g_hat] = pp[:, total_debt] / pp[:, equity]
     pp = pd.DataFrame(pp, columns=columns)
-
     return pp
 
 
@@ -379,11 +381,14 @@ def main(investments_in, sim_type, random_state, gearing_cap, gamma, sigma2, mr,
     pi_rf = calc_pi(gamma, sigma2, mr, yearly_rf, cost)
     pi_rm = calc_pi(gamma, sigma2, mr, yearly_rm, cost)
 
-    port = calculate_return(investments_in, returns, gearing_cap, pi_rf, pi_rm, rf, pay_taxes)
+    port = calculate_return(investments_in, returns, gearing_cap, pi_rf, pi_rm, rf, pay_taxes, dual_phase = True)
+    port_single = calculate_return(investments_in, returns, gearing_cap, pi_rf, pi_rm, rf, pay_taxes, dual_phase=False)
     port100 = calculate100return(investments_in, returns, pay_taxes)
     port9050 = calculate9050return(investments_in, returns, rf, pay_taxes)
 
     # Joining normal strategies on to geared
+    port['dual_phase'] = port['tv_u'] - port['total_debt']
+    port['single_phase'] = port_single['tv_u'] - port_single['total_debt']
     port['100'] = port100['tv_u']
     port['9050'] = port9050['tv_u']
     port['random_state'] = random_state
