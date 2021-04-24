@@ -404,6 +404,12 @@ def main(investments_in, sim_type, random_state, gearing_cap, gamma, sigma2, mr,
     port['9050'] = port9050['tv_u']
     port['random_state'] = random_state
 
+    # Convert selected float columns to integer values
+    flt_cols = ['period', 'random_state', 'savings', 'cash', 'new_equity', 'new_debt', 'total_debt',
+                'pv_p', 'interest', 'tv_u', 'dst', 'phase', '100', '9050']
+
+    port.loc[:, flt_cols] = port.loc[:, flt_cols].astype(int)
+    
     # Reducing size of port
     # Setting period as index
     if seed_index:
@@ -414,11 +420,7 @@ def main(investments_in, sim_type, random_state, gearing_cap, gamma, sigma2, mr,
     # Dropping non-essential columns
     #port.drop(columns=['nip', 'pv_u', 'equity', 'pi_hat', 'g_hat'], inplace=True)
 
-    # Convert selected float columns to integer values
-    flt_cols = ['savings', 'cash', 'new_equity', 'new_debt', 'total_debt',
-                'pv_p', 'interest', 'tv_u', 'dst', 'phase', '100', '9050']
 
-    port.loc[:, flt_cols] = port.loc[:, flt_cols].astype(int)
     #for debt in ['SU_debt', 'Nordnet_debt']:
     #    try:
     #        port.loc[:, [debt]] = port.loc[:, [debt]].astype(int)
@@ -456,12 +458,18 @@ def fetch_returns(sim_type, random_seeds, BEGINNING_SAVINGS = 9000,
 
     comb_args = tuple(product(*a))
 
-    #dfs = main(*comb_args[0])
-
     with Pool() as p:
         res = p.starmap(main, comb_args, 2)
         dfs = pd.concat(res)
-
+        print(dfs)
+        if SEED_INDEX:
+            dfs.index = dfs.index.set_levels([dfs.index.levels[0], pd.date_range(start="2020-01-01", freq='MS', periods=YEARS*12+1)])
+        else:
+            multi=pd.Index(pd.date_range(start="2020-01-01", freq='MS', periods=YEARS*12+1))
+            for i in range(len(random_seeds)-1):
+                multi = multi.append(pd.date_range(start="2020-01-01", freq='MS', periods=YEARS*12+1))
+            dfs.index = multi
+        
     return dfs
 
 
