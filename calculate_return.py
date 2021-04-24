@@ -461,7 +461,6 @@ def fetch_returns(sim_type, random_seeds, BEGINNING_SAVINGS = 9000,
     with Pool() as p:
         res = p.starmap(main, comb_args, 2)
         dfs = pd.concat(res)
-        print(dfs)
         if SEED_INDEX:
             dfs.index = dfs.index.set_levels([dfs.index.levels[0], pd.date_range(start="2020-01-01", freq='MS', periods=YEARS*12+1)])
         else:
