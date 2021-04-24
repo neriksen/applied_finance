@@ -123,7 +123,7 @@ def phase_check(phase, pi_rf, pi_rm, pi_hat, td, dual_phase):
     return 4
 
 
-def calc_pi(gamma, sigma2, mr, rate, cost=0):
+def calc_pi(gamma, sigma2, mr, rate, cost=0.0):
     return (mr - cost - rate) / (gamma * sigma2)
 
 
@@ -417,22 +417,65 @@ def main(investments_in, sim_type, random_state, gearing_cap, gamma, sigma2, mr,
     else:
         port.set_index('period', drop=True, inplace=True)
 
-    # Dropping non-essential columns
-    #port.drop(columns=['nip', 'pv_u', 'equity', 'pi_hat', 'g_hat'], inplace=True)
-
-
-    #for debt in ['SU_debt', 'Nordnet_debt']:
-    #    try:
-    #        port.loc[:, [debt]] = port.loc[:, [debt]].astype(int)
-    #    except KeyError:
-    #        pass
-
     if save_to_file:
         vars_for_name = (sim_type, random_state, gearing_cap, gamma, sigma2, mr, yearly_rf, yearly_rm, cost)
         out_str = [str(x) + '_' if x != vars_for_name[-1] else str(x) for x in vars_for_name]
         port.to_pickle('sims/' + sim_type + '/' + ''.join(out_str) + '.bz2', compression="bz2")
 
     return port
+
+
+def main_shiller(investments_in, returns, gearing_cap = 1, gamma = 2, sigma2 = 0.02837, mr = 0.076,
+         yearly_rf = 0.02, yearly_rm = 0.023, cost = 0.002, debt_pct_offset = 0.0, pay_taxes=True):
+
+    rf = math.exp(yearly_rf / 12) - 1
+
+    pi_rf = calc_pi(gamma, sigma2, mr, yearly_rf, cost)
+    pi_rm = calc_pi(gamma, sigma2, mr, yearly_rm, cost)
+
+    port = calculate_return(investments_in, returns, gearing_cap, pi_rf, pi_rm, rf,
+                            pay_taxes, debt_pct_offset, dual_phase=True)
+    port_single = calculate_return(investments_in, returns, gearing_cap, pi_rf, pi_rm, rf,
+                                   pay_taxes, debt_pct_offset, dual_phase=False)
+    port100 = calculate100return(investments_in, returns, pay_taxes)
+    port9050 = calculate9050return(investments_in, returns, rf, pay_taxes)
+
+    # Joining normal strategies on to geared
+    port['dual_phase'] = port['tv_u'] - port['total_debt']
+    port['single_phase'] = port_single['tv_u'] - port_single['total_debt']
+    port['100'] = port100['tv_u']
+    port['9050'] = port9050['tv_u']
+
+    # Convert selected float columns to integer values
+    flt_cols = ['period', 'savings', 'cash', 'new_equity', 'new_debt', 'total_debt',
+                'pv_p', 'interest', 'tv_u', 'dst', 'phase', '100', '9050']
+
+    port.loc[:, flt_cols] = port.loc[:, flt_cols].astype(int)
+
+    # Reducing size of port
+    # Setting period as index
+    port.set_index('period', drop=True, inplace=True)
+
+    return port
+
+
+def fetch_returns_shiller(returns, BEGINNING_SAVINGS=9000, YEARLY_INCOME_GROWTH=0.0, PAY_TAXES=True,
+                          YEARS=50, GAMMA=2, YEARLY_RF=0.02, YEARLY_MR=0.023, COST=0.002,
+                          DEBT_PCT_OFFSET=0.0, SIGMA=0.02837, MR=0.076):
+
+    SLOPE = (0.014885 + YEARLY_INCOME_GROWTH / 12) * BEGINNING_SAVINGS
+    CONVEXITY = -0.0000373649 * BEGINNING_SAVINGS
+    JERK = 0.000000025 * BEGINNING_SAVINGS
+    savings_func = lambda x: JERK * (x ** 3) + CONVEXITY * (x ** 2) + SLOPE * x + BEGINNING_SAVINGS
+
+    savings_val = np.array([savings_func(x) for x in range(0, YEARS * 12 + 1)])
+    investments = savings_val * 0.05
+
+    assert(len(investments) == len(returns))
+
+    res = main_shiller(investments, returns, 1, GAMMA, SIGMA, MR, YEARLY_RF, YEARLY_MR, COST, DEBT_PCT_OFFSET, PAY_TAXES)
+
+    return res
 
 
 def fetch_returns(sim_type, random_seeds, BEGINNING_SAVINGS = 9000,
