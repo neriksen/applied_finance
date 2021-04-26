@@ -385,9 +385,11 @@ def calculate9050return(savings_in, returns, rf_in, pay_taxes):
 
 def main(investments_in, sim_type, random_state, gearing_cap,
          debt_pct_offset, rf, pi_rm, pi_rf, pay_taxes = True,
-         seed_index=True):
+         seed_index=True, cost = 0.002):
 
     returns = np.load('market_lookup/' + sim_type + '/' + str(random_state) + '.npy')[0:len(investments_in)]
+
+    returns -= cost/12
 
     port = calculate_return(investments_in, returns, gearing_cap, pi_rf, pi_rm, rf,
                             pay_taxes, debt_pct_offset, dual_phase = True)
@@ -419,7 +421,8 @@ def main(investments_in, sim_type, random_state, gearing_cap,
     return port
 
 
-def main_shiller(investments_in, returns, rf, rm, pi_rf, pi_rm, gearing_cap = 1, debt_pct_offset = 0.0, pay_taxes=True):
+def main_shiller(investments_in, returns, rf, rm, pi_rf, pi_rm, gearing_cap = 1, debt_pct_offset = 0.0,
+                 pay_taxes=True):
 
 
     port = calculate_return(investments_in, returns, gearing_cap, pi_rf, pi_rm, rf,
@@ -472,6 +475,9 @@ def fetch_returns_shiller(returns, YEARLY_RF, YEARLY_RM, BEGINNING_SAVINGS=9000,
 
     assert(len(investments) == len(returns))
 
+    # Deduct yearly cost from returns
+    returns -= COST/12
+
     res = main_shiller(investments, returns, RF, RM, PI_RF, PI_RM, DEBT_PCT_OFFSET, PAY_TAXES)
 
     return res
@@ -506,7 +512,7 @@ def fetch_returns(sim_type, random_seeds, BEGINNING_SAVINGS = 9000,
 
     # Creating list of arguments
     a = [[investments], [sim_type], random_seeds, [1],
-         [DEBT_PCT_OFFSET], [RF], [PI_RM], [PI_RF], [PAY_TAXES], [SEED_INDEX]]
+         [DEBT_PCT_OFFSET], [RF], [PI_RM], [PI_RF], [PAY_TAXES], [SEED_INDEX], [COST]]
 
 
     comb_args = tuple(product(*a))
