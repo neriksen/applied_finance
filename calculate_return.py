@@ -256,7 +256,7 @@ def calculate_return(savings_in, returns, gearing_cap, pi_rf_in, pi_rm_in, rf_in
             # pp[i, dst] = max(pp[i-1, dst], max(pp[i, tv_u]*target_pi, ist))  # Locked stock target at highest previous position
 
         else:
-            print('warning: catastrophic wipeout')
+            #print('warning: catastrophic wipeout')
             pp[i:, [savings, cash, new_equity, new_debt, nip, pv_p,
                     interest, pv_u, tv_u, pi_hat, g_hat]] = 0
 
@@ -544,18 +544,18 @@ if __name__ == "__main__":
     rf = data.loc[begin:end, 'long_rf'].values/100
     rm = rf + 0.02
     tic = time.perf_counter()
-    shil = fetch_returns_shiller(returns, rf, rm)
+    #shil = fetch_returns_shiller(returns, rf, rm)
 
     #shil.index = pd.date_range(begin, end, freq='MS')
-    plt.plot(shil['dual_phase'])
-    plt.plot(shil['single_phase'])
-    plt.plot(shil['100'])
-    plt.plot(shil['9050'])
+    # plt.plot(shil['dual_phase'])
+    # plt.plot(shil['single_phase'])
+    # plt.plot(shil['100'])
+    # plt.plot(shil['9050'])
     #plt.plot(shil['pi_rm'])
     #plt.plot(shil['pi_rf'])
-    plt.legend(['dual_phase', 'single_phase', '100', '9050'])
+    #plt.legend(['dual_phase', 'single_phase', '100', '9050'])
     #plt.legend(['pi_rm', 'pi_rf'])
-    #fetch_returns('garch', range(10), YEARLY_RF=rf, YEARLY_RM=rm)
+    fetch_returns('garch', range(10), YEARLY_RF=rf, YEARLY_RM=rm)
     toc = time.perf_counter()
     profiler.disable()
     stats = pstats.Stats(profiler)
@@ -564,7 +564,7 @@ if __name__ == "__main__":
     stats.reverse_order()
     stats.print_stats()
     print(f"Script took {toc - tic:0.5f} seconds")
-    plt.show()
+    #plt.show()
     # tic = time.perf_counter()
     # test = fetch_returns('garch', range(500), PAY_TAXES=False)
     # test2 = fetch_returns('garch', range(500), PAY_TAXES=True)
