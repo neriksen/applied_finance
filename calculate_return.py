@@ -123,38 +123,46 @@ def phase_check(phase, pi_rf, pi_rm, pi_hat, td, dual_phase):
     return 4
 
 
-def calc_pi(gamma, sigma2, mr, rate, cost=0.0):
+def pi_arr(rate, gamma, sigma2, mr, cost):
     return (mr - cost - rate) / (gamma * sigma2)
 
 
-def calculate_return(savings_in, returns, gearing_cap, pi_rf, pi_rm, rf, pay_taxes, debt_pct_offset, dual_phase):
+def calc_pi(gamma, sigma2, mr, rate, cost=0.0):
+    # Assumes rate is a np.array
+    pi_vec = np.vectorize(pi_arr)
+    pi = np.apply_along_axis(pi_vec, 0, rate, gamma, sigma2, mr, cost)
+    return pi
+
+
+def calculate_return(savings_in, returns, gearing_cap, pi_rf_in, pi_rm_in, rf_in, pay_taxes, debt_pct_offset, dual_phase):
     # Running controls
     len_savings = len(savings_in)
     #assert len_savings == len(returns), 'Investment plan should be same no of periods as market'
 
-    if not dual_phase:
-        pi_rf = pi_rm
 
     # Setting up constants and dataframe for calculation
     ses_val = savings_in.sum()  # Possibly add more sophisticated discounting
-    ist = pi_rm * ses_val
+    ist = pi_rm_in[0] * ses_val
     columns = ['period', 'savings', 'cash', 'new_equity', 'new_debt', 'total_debt', 'nip', 'pv_p',
                'interest', 'market_returns', 'pv_u', 'tv_u', 'equity', 'dst', 'phase', 'pi_hat',
-               'g_hat', 'SU_debt', 'Nordnet_debt']
+               'g_hat', 'SU_debt', 'Nordnet_debt', 'rf', 'pi_rf', 'pi_rm']
 
     len_columns = len(columns)
 
     pp = np.zeros((len_savings, len_columns))
 
     period, savings, cash, new_equity, new_debt, total_debt, nip, pv_p, interest, \
-    market_returns, pv_u, tv_u, equity, dst, phase, pi_hat, g_hat, SU_debt, Nordnet_debt\
-        = range(len_columns)
+    market_returns, pv_u, tv_u, equity, dst, phase, pi_hat, g_hat, SU_debt, Nordnet_debt, rf, \
+    pi_rf, pi_rm = range(len_columns)
 
     tax_deduction = 0
 
     pp[:, period] = range(len_savings)
     pp[:, market_returns] = returns
     pp[:, savings] = savings_in
+    pp[:, rf] = rf_in
+    pp[:, pi_rf] = pi_rf_in
+    pp[:, pi_rm] = pi_rm_in
     pp[0, market_returns] = 0
 
     # Initializing debt objects
@@ -197,11 +205,11 @@ def calculate_return(savings_in, returns, gearing_cap, pi_rf, pi_rm, rf, pay_tax
         # Period t > 0 primo
         if not (pp[i - 1, tv_u] <= 0 and (pp[i - 1, interest] > pp[i, savings])):
 
-            pp[i, cash] = pp[i - 1, cash] * (1 + rf*(1-0.42))
+            pp[i, cash] = pp[i - 1, cash] * (1 + pp[i, rf]*(1-0.42))
             pp[i, cash], pp[i, new_equity], pp[i, new_debt] = determine_investment(
                 pp[i - 1, phase], pp[i - 1, pv_u],
                 pp[i - 1, tv_u], pp[i, savings], pp[i - 1, total_debt],
-                pi_rf, pp[i - 1, dst], gearing_cap, pp[i, period])
+                pp[i - 1, pi_rf], pp[i - 1, dst], gearing_cap, pp[i, period])
             try:
                 pp[i, SU_debt] = debt_available['SU'].debt_amount
                 pp[i, Nordnet_debt] = debt_available['Nordnet'].debt_amount
@@ -242,8 +250,8 @@ def calculate_return(savings_in, returns, gearing_cap, pi_rf, pi_rm, rf, pay_tax
             pp[i, tv_u] = pp[i, pv_u] + pp[i, cash]
             pp[i, equity] = pp[i, tv_u] - pp[i, total_debt]
             pp[i, pi_hat] = min(pp[i, pv_u] / ses_val, pp[i, pv_u] / pp[i, tv_u])
-            pp[i, phase] = phase_check(pp[i - 1, phase], pi_rf, pi_rm, pp[i, pi_hat], pp[i, total_debt], dual_phase)
-            target_pi = pi_rm if pp[i - 1, phase] < 3 else pi_rf
+            pp[i, phase] = phase_check(pp[i - 1, phase], pp[i-1, pi_rf], pp[i-1, pi_rm], pp[i, pi_hat], pp[i, total_debt], dual_phase)
+            target_pi = pp[i-1, pi_rm] if pp[i - 1, phase] < 3 else pp[i-1, pi_rf]
             pp[i, dst] = max(pp[i, tv_u] * target_pi, ist)  # Moving stock target
             # pp[i, dst] = max(pp[i-1, dst], max(pp[i, tv_u]*target_pi, ist))  # Locked stock target at highest previous position
 
@@ -311,7 +319,7 @@ def calculate100return(savings_in, returns, pay_taxes):
     return pp
 
 
-def calculate9050return(savings_in, returns, rf, pay_taxes):
+def calculate9050return(savings_in, returns, rf_in, pay_taxes):
     # Strategy where 90% of value is initially invested in stocks, rest in risk free asset
     # Ratio of stocks falls linearly to 50% by age 65 and stays there
 
@@ -319,18 +327,19 @@ def calculate9050return(savings_in, returns, rf, pay_taxes):
     len_savings = len(savings_in)
     #assert len_savings == len(returns), 'Investment plan should be same no of periods as market'
 
-    columns = ['period', 'savings', 'cash', 'pv_p', 'market_returns', 'pv_u', 'tv_u', 'ratio']
+    columns = ['period', 'savings', 'cash', 'pv_p', 'market_returns', 'pv_u', 'tv_u', 'ratio', 'rf']
     len_columns = len(columns)
 
     pp = np.empty((len_savings, len_columns))
 
-    period, savings, cash, pv_p, market_returns, pv_u, tv_u, ratio = range(len_columns)
+    period, savings, cash, pv_p, market_returns, pv_u, tv_u, ratio, rf = range(len_columns)
 
     tax_deduction = 0
 
     pp[:, period] = range(len_savings)
     pp[:, market_returns] = returns
     pp[:, savings] = savings_in
+    pp[:, rf] = rf_in
     pp[0, market_returns] = 0
     pp[0, pv_p] = pp[0, savings] * 0.9
     pp[0, cash] = pp[0, savings] * 0.1
@@ -344,7 +353,7 @@ def calculate9050return(savings_in, returns, rf, pay_taxes):
 
         # Period t > 0 primo
         pp[i, pv_p] = pp[i - 1, pv_u] + pp[i, savings] * (ratio_val / 100)
-        pp[i, cash] = pp[i - 1, cash] * (1 + rf*(1-0.42)) + pp[i, savings] * (1 - ratio_val / 100)
+        pp[i, cash] = pp[i - 1, cash] * (1 + pp[i, rf]*(1-0.42)) + pp[i, savings] * (1 - ratio_val / 100)
 
         # Period t > 0 ultimo
         pp[i, pv_u] = pp[i, pv_p] * (1 + pp[i, market_returns])
@@ -374,25 +383,15 @@ def calculate9050return(savings_in, returns, rf, pay_taxes):
     return pp
 
 
-def main(investments_in, sim_type, random_state, gearing_cap, gamma, sigma2, mr,
-         yearly_rf, yearly_rm, cost, debt_pct_offset, save_to_file = False, pay_taxes = True, seed_index=True):
-
-    '''
-      a = [[investments], [sim_type], random_seeds, [1],
-         [GAMMA], [SIGMA], [MR], [YEARLY_RF], [YEARLY_MR], [COST],
-         [save_to_file], [PAY_TAXES], [DEBT_PCT_OFFSET], [SEED_INDEX]]
-    '''
+def main(investments_in, sim_type, random_state, gearing_cap,
+         debt_pct_offset, rf, pi_rm, pi_rf, pay_taxes = True,
+         seed_index=True):
 
     returns = np.load('market_lookup/' + sim_type + '/' + str(random_state) + '.npy')[0:len(investments_in)]
 
-    rf = math.exp(yearly_rf / 12) - 1
-
-    pi_rf = calc_pi(gamma, sigma2, mr, yearly_rf, cost)
-    pi_rm = calc_pi(gamma, sigma2, mr, yearly_rm, cost)
-
     port = calculate_return(investments_in, returns, gearing_cap, pi_rf, pi_rm, rf,
                             pay_taxes, debt_pct_offset, dual_phase = True)
-    port_single = calculate_return(investments_in, returns, gearing_cap, pi_rf, pi_rm, rf,
+    port_single = calculate_return(investments_in, returns, gearing_cap, pi_rm, pi_rm, rf,
                                    pay_taxes, debt_pct_offset, dual_phase=False)
     port100 = calculate100return(investments_in, returns, pay_taxes)
     port9050 = calculate9050return(investments_in, returns, rf, pay_taxes)
@@ -417,21 +416,11 @@ def main(investments_in, sim_type, random_state, gearing_cap, gamma, sigma2, mr,
     else:
         port.set_index('period', drop=True, inplace=True)
 
-    if save_to_file:
-        vars_for_name = (sim_type, random_state, gearing_cap, gamma, sigma2, mr, yearly_rf, yearly_rm, cost)
-        out_str = [str(x) + '_' if x != vars_for_name[-1] else str(x) for x in vars_for_name]
-        port.to_pickle('sims/' + sim_type + '/' + ''.join(out_str) + '.bz2', compression="bz2")
-
     return port
 
 
-def main_shiller(investments_in, returns, gearing_cap = 1, gamma = 2, sigma2 = 0.02837, mr = 0.076,
-         yearly_rf = 0.02, yearly_rm = 0.023, cost = 0.002, debt_pct_offset = 0.0, pay_taxes=True):
+def main_shiller(investments_in, returns, rf, rm, pi_rf, pi_rm, gearing_cap = 1, debt_pct_offset = 0.0, pay_taxes=True):
 
-    rf = math.exp(yearly_rf / 12) - 1
-
-    pi_rf = calc_pi(gamma, sigma2, mr, yearly_rf, cost)
-    pi_rm = calc_pi(gamma, sigma2, mr, yearly_rm, cost)
 
     port = calculate_return(investments_in, returns, gearing_cap, pi_rf, pi_rm, rf,
                             pay_taxes, debt_pct_offset, dual_phase=True)
@@ -459,29 +448,39 @@ def main_shiller(investments_in, returns, gearing_cap = 1, gamma = 2, sigma2 = 0
     return port
 
 
-def fetch_returns_shiller(returns, BEGINNING_SAVINGS=9000, YEARLY_INCOME_GROWTH=0.0, PAY_TAXES=True,
-                          YEARS=50, GAMMA=2, YEARLY_RF=0.02, YEARLY_MR=0.023, COST=0.002,
-                          DEBT_PCT_OFFSET=0.0, SIGMA=0.02837, MR=0.076):
+def fetch_returns_shiller(returns, YEARLY_RF, YEARLY_RM, BEGINNING_SAVINGS=9000, YEARLY_INCOME_GROWTH=0.0, PAY_TAXES=True,
+                          YEARS=50, GAMMA=2, COST=0.002,
+                          DEBT_PCT_OFFSET=0.0, SIGMA2=0.02837, MR=0.076):
 
     SLOPE = (0.014885 + YEARLY_INCOME_GROWTH / 12) * BEGINNING_SAVINGS
     CONVEXITY = -0.0000373649 * BEGINNING_SAVINGS
     JERK = 0.000000025 * BEGINNING_SAVINGS
     savings_func = lambda x: JERK * (x ** 3) + CONVEXITY * (x ** 2) + SLOPE * x + BEGINNING_SAVINGS
 
+    assert isinstance(YEARLY_RF, np.ndarray)
+    assert isinstance(YEARLY_RM, np.ndarray)
+
+    PI_RF = calc_pi(GAMMA, SIGMA2, MR, YEARLY_RF, COST)
+    PI_RM = calc_pi(GAMMA, SIGMA2, MR, YEARLY_RM, COST)
+
+    # Converting RF and RM to monthly rates
+    RM = np.exp(YEARLY_RM/12) -1
+    RF = np.exp(YEARLY_RF/12) -1
+
     savings_val = np.array([savings_func(x) for x in range(0, YEARS * 12 + 1)])
     investments = savings_val * 0.05
 
     assert(len(investments) == len(returns))
 
-    res = main_shiller(investments, returns, 1, GAMMA, SIGMA, MR, YEARLY_RF, YEARLY_MR, COST, DEBT_PCT_OFFSET, PAY_TAXES)
+    res = main_shiller(investments, returns, RF, RM, PI_RF, PI_RM, DEBT_PCT_OFFSET, PAY_TAXES)
 
     return res
 
 
 def fetch_returns(sim_type, random_seeds, BEGINNING_SAVINGS = 9000,
                    YEARLY_INCOME_GROWTH = 0.0, PAY_TAXES = True, YEARS = 50, GAMMA = 2,
-                   YEARLY_RF = 0.02, YEARLY_MR = 0.023, COST = 0.002, DEBT_PCT_OFFSET = 0.0,
-                   SIGMA = 0.02837, MR = 0.076, save_to_file = False, SEED_INDEX = True):
+                   YEARLY_RF = 0.02, YEARLY_RM = 0.023, COST = 0.002, DEBT_PCT_OFFSET = 0.0,
+                   SIGMA2 = 0.02837, MR = 0.076, SEED_INDEX = True):
 
     SLOPE = (0.014885 + YEARLY_INCOME_GROWTH/12) * BEGINNING_SAVINGS
     CONVEXITY = -0.0000373649 * BEGINNING_SAVINGS
@@ -491,13 +490,24 @@ def fetch_returns(sim_type, random_seeds, BEGINNING_SAVINGS = 9000,
     savings_val = np.array([savings_func(x) for x in range(0, YEARS*12 + 1)])
     investments = savings_val * 0.05
 
-    print('pi_rf: ', f'{calc_pi(GAMMA, SIGMA, MR, YEARLY_RF)*100: .2f}%')
-    print('pi_rm: ', f'{calc_pi(GAMMA, SIGMA, MR, YEARLY_MR)*100: .2f}%')
+    # In case RF or RM is inputted as constants convert to numpy arrays
+    if not isinstance(YEARLY_RF, np.ndarray):
+        YEARLY_RF = np.full(len(investments), YEARLY_RF)
+
+    if not isinstance(YEARLY_RM, np.ndarray):
+        YEARLY_RM = np.full(len(investments), YEARLY_RM)
+
+    PI_RF = calc_pi(GAMMA, SIGMA2, MR, YEARLY_RF, COST)
+    PI_RM = calc_pi(GAMMA, SIGMA2, MR, YEARLY_RM, COST)
+
+    # Converting RF and RM to monthly rates
+    RM = np.exp(YEARLY_RM/12) -1
+    RF = np.exp(YEARLY_RF/12) -1
 
     # Creating list of arguments
     a = [[investments], [sim_type], random_seeds, [1],
-         [GAMMA], [SIGMA], [MR], [YEARLY_RF], [YEARLY_MR], [COST], [DEBT_PCT_OFFSET],
-         [save_to_file], [PAY_TAXES], [SEED_INDEX]]
+         [DEBT_PCT_OFFSET], [RF], [PI_RM], [PI_RF], [PAY_TAXES], [SEED_INDEX]]
+
 
     comb_args = tuple(product(*a))
 
@@ -520,10 +530,32 @@ def fetch_returns(sim_type, random_seeds, BEGINNING_SAVINGS = 9000,
 if __name__ == "__main__":
 
     import cProfile, pstats
+    import datetime as dt
     profiler = cProfile.Profile()
     profiler.enable()
+
+    #fetch_returns('garch', range(100))
+    data = pd.read_csv('shiller_data.txt', sep="\t", index_col=0, parse_dates=True)
+    data.index = pd.to_datetime(data.index.date)
+    data['sp_return'] = data['sp'].pct_change()
+    begin = dt.date(1871, 1, 1).strftime('%Y-%m-%d')
+    end = dt.date(1921, 1, 1).strftime('%Y-%m-%d')
+    returns = data.loc[begin:end, 'sp_return'].values
+    rf = data.loc[begin:end, 'long_rf'].values/100
+    rm = rf + 0.02
     tic = time.perf_counter()
-    fetch_returns('garch', range(100))
+    shil = fetch_returns_shiller(returns, rf, rm)
+
+    #shil.index = pd.date_range(begin, end, freq='MS')
+    plt.plot(shil['dual_phase'])
+    plt.plot(shil['single_phase'])
+    plt.plot(shil['100'])
+    plt.plot(shil['9050'])
+    #plt.plot(shil['pi_rm'])
+    #plt.plot(shil['pi_rf'])
+    plt.legend(['dual_phase', 'single_phase', '100', '9050'])
+    #plt.legend(['pi_rm', 'pi_rf'])
+    #fetch_returns('garch', range(10), YEARLY_RF=rf, YEARLY_RM=rm)
     toc = time.perf_counter()
     profiler.disable()
     stats = pstats.Stats(profiler)
@@ -531,9 +563,8 @@ if __name__ == "__main__":
     stats.sort_stats('cumtime')
     stats.reverse_order()
     stats.print_stats()
-
     print(f"Script took {toc - tic:0.5f} seconds")
-
+    plt.show()
     # tic = time.perf_counter()
     # test = fetch_returns('garch', range(500), PAY_TAXES=False)
     # test2 = fetch_returns('garch', range(500), PAY_TAXES=True)
