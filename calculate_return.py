@@ -451,9 +451,8 @@ def main_shiller(investments_in, returns, rf, rm, pi_rf, pi_rm, gearing_cap = 1,
     return port
 
 
-def fetch_returns_shiller(returns, YEARLY_RF, YEARLY_RM, BEGINNING_SAVINGS=9000, YEARLY_INCOME_GROWTH=0.03, PAY_TAXES=True,
-                          YEARS=50, GAMMA=2, COST=0.002,
-                          DEBT_PCT_OFFSET=0.0, SIGMA2=0.02837, MR=0.076):
+def fetch_returns_shiller(returns, YEARLY_RF, YEARLY_RM, BEGINNING_SAVINGS=9000, YEARLY_INCOME_GROWTH=0.03,
+                          PAY_TAXES=True, YEARS=50, GAMMA=2, COST=0.002, DEBT_PCT_OFFSET=0.0, SIGMA2=0.02837, MR=0.076):
 
     SLOPE = (0.014885 + YEARLY_INCOME_GROWTH / 12) * BEGINNING_SAVINGS
     CONVEXITY = -0.0000373649 * BEGINNING_SAVINGS
@@ -478,7 +477,7 @@ def fetch_returns_shiller(returns, YEARLY_RF, YEARLY_RM, BEGINNING_SAVINGS=9000,
     # Deduct yearly cost from returns
     returns -= COST/12
 
-    res = main_shiller(investments, returns, RF, RM, PI_RF, PI_RM, DEBT_PCT_OFFSET, PAY_TAXES)
+    res = main_shiller(investments, returns, RF, RM, PI_RF, PI_RM, 1, DEBT_PCT_OFFSET, PAY_TAXES)
 
     return res
 
