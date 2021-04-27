@@ -124,7 +124,7 @@ def phase_check(phase, pi_rf, pi_rm, pi_hat, td, dual_phase):
 
 
 def pi_arr(rate, gamma, sigma2, mr, cost):
-    return (mr - cost - rate) / (gamma * sigma2)
+    return max(0, ((mr - cost - rate) / (gamma * sigma2)))
 
 
 def calc_pi(gamma, sigma2, mr, rate, cost=0.0):
@@ -134,10 +134,7 @@ def calc_pi(gamma, sigma2, mr, rate, cost=0.0):
     return pi
 
 
-def calculate_return(savings_in, returns, gearing_cap, pi_rf_in, pi_rm_in, rf_in, pay_taxes, debt_pct_offset, dual_phase):
-    # Running controls
-    len_savings = len(savings_in)
-    #assert len_savings == len(returns), 'Investment plan should be same no of periods as market'
+def calculate_return(savings_in, returns, gearing_cap, pi_rf_in, pi_rm_in, rf_in, rm_in, pay_taxes, dual_phase):
 
 
     # Setting up constants and dataframe for calculation
@@ -145,14 +142,15 @@ def calculate_return(savings_in, returns, gearing_cap, pi_rf_in, pi_rm_in, rf_in
     ist = pi_rm_in[0] * ses_val
     columns = ['period', 'savings', 'cash', 'new_equity', 'new_debt', 'total_debt', 'nip', 'pv_p',
                'interest', 'market_returns', 'pv_u', 'tv_u', 'equity', 'dst', 'phase', 'pi_hat',
-               'g_hat', 'SU_debt', 'Nordnet_debt', 'rf', 'pi_rf', 'pi_rm']
+               'g_hat', 'SU_debt', 'Nordnet_debt', 'rf', 'rm', 'pi_rf', 'pi_rm']
 
+    len_savings = len(savings_in)
     len_columns = len(columns)
 
     pp = np.zeros((len_savings, len_columns))
 
     period, savings, cash, new_equity, new_debt, total_debt, nip, pv_p, interest, \
-    market_returns, pv_u, tv_u, equity, dst, phase, pi_hat, g_hat, SU_debt, Nordnet_debt, rf, \
+    market_returns, pv_u, tv_u, equity, dst, phase, pi_hat, g_hat, SU_debt, Nordnet_debt, rf, rm,\
     pi_rf, pi_rm = range(len_columns)
 
     tax_deduction = 0
@@ -161,21 +159,23 @@ def calculate_return(savings_in, returns, gearing_cap, pi_rf_in, pi_rm_in, rf_in
     pp[:, market_returns] = returns
     pp[:, savings] = savings_in
     pp[:, rf] = rf_in
+    pp[:, rm] = rm_in
     pp[:, pi_rf] = pi_rf_in
     pp[:, pi_rm] = pi_rm_in
     pp[0, market_returns] = 0
 
+    debt_pct_offset = np.round(rm_in - 0.001918504646, 3)
     # Initializing debt objects
     try:
-        debt_available['SU'] = Debt(rate_structure=[[0, 0, 0.04 + debt_pct_offset]],
+        debt_available['SU'] = Debt(rate_structure=[[0, 0, 0.04 + debt_pct_offset[0]]],
                                     rate_structure_type='relative', initial_debt=0)
     except KeyError:
         pass
 
     try:
-        debt_available['Nordnet'] = Debt(rate_structure=[[0, .4, 0.02 + debt_pct_offset],
-                                                         [.4, .6, 0.03 + debt_pct_offset],
-                                                         [.6, 0, 0.07 + debt_pct_offset]],
+        debt_available['Nordnet'] = Debt(rate_structure=[[0, .4, 0.02 + debt_pct_offset[0]],
+                                                         [.4, .6, 0.03 + debt_pct_offset[0]],
+                                                         [.6, 0, 0.07] + debt_pct_offset[0]],
                                          rate_structure_type='relative', initial_debt=0)
     except KeyError:
         pass
@@ -220,9 +220,23 @@ def calculate_return(savings_in, returns, gearing_cap, pi_rf_in, pi_rm_in, rf_in
             pp[i, nip] = pp[i, new_equity] + max(0, pp[i, new_debt])
             pp[i, pv_p] = pp[i - 1, pv_u] + pp[i, nip]
 
+            # Update debt cost
+            try:
+                if period <= 60:
+                    debt_available['SU'].change_rate_structure([[0, 0, 0.04 + debt_pct_offset[i]]], 'relative')
+                else:
+                    debt_available['SU'].change_rate_structure([[0, 0, 0.01 + debt_pct_offset[i]]], 'relative')
+            except KeyError: pass
+
+            try:
+                debt_available['Nordnet'].change_rate_structure([[0, .4, 0.02 + debt_pct_offset[i]],
+                                                                 [.4, .6, 0.03 + debt_pct_offset[i]],
+                                                                 [.6, 0, 0.07 + debt_pct_offset[i]]], 'relative')
+            except KeyError: pass
+
             # Period t > 0 ultimo
-            if pp[i, period] == 60 and 'SU' in debt_available.keys():
-                debt_available['SU'].change_rate_structure([[0, 0, 0.01 + debt_pct_offset]], 'dollar')
+            #if pp[i, period] == 60 and 'SU' in debt_available.keys():
+            #    debt_available['SU'].change_rate_structure([[0, 0, 0.01]], 'dollar')
 
             pp[i, interest] = max(interest_all_debt(pp[i, period]), 0)
             pp[i, pv_u] = pp[i, pv_p] * (1 + pp[i, market_returns])
@@ -384,17 +398,17 @@ def calculate9050return(savings_in, returns, rf_in, pay_taxes):
 
 
 def main(investments_in, sim_type, random_state, gearing_cap,
-         debt_pct_offset, rf, pi_rm, pi_rf, pay_taxes = True,
+         rf, rm, pi_rm, pi_rf, pay_taxes = True,
          seed_index=True, cost = 0.002):
 
     returns = np.load('market_lookup/' + sim_type + '/' + str(random_state) + '.npy')[0:len(investments_in)]
 
     returns -= cost/12
 
-    port = calculate_return(investments_in, returns, gearing_cap, pi_rf, pi_rm, rf,
-                            pay_taxes, debt_pct_offset, dual_phase = True)
-    port_single = calculate_return(investments_in, returns, gearing_cap, pi_rm, pi_rm, rf,
-                                   pay_taxes, debt_pct_offset, dual_phase=False)
+    port = calculate_return(investments_in, returns, gearing_cap, pi_rf, pi_rm, rf, rm,
+                            pay_taxes, dual_phase = True)
+    port_single = calculate_return(investments_in, returns, gearing_cap, pi_rm, pi_rm, rf, rm,
+                                   pay_taxes, dual_phase=False)
     port100 = calculate100return(investments_in, returns, pay_taxes)
     port9050 = calculate9050return(investments_in, returns, rf, pay_taxes)
 
@@ -421,14 +435,12 @@ def main(investments_in, sim_type, random_state, gearing_cap,
     return port
 
 
-def main_shiller(investments_in, returns, rf, rm, pi_rf, pi_rm, gearing_cap = 1, debt_pct_offset = 0.0,
-                 pay_taxes=True):
+def main_shiller(investments_in, returns, rf, rm, pi_rf, pi_rm, gearing_cap = 1, pay_taxes=True):
 
-
-    port = calculate_return(investments_in, returns, gearing_cap, pi_rf, pi_rm, rf,
-                            pay_taxes, debt_pct_offset, dual_phase=True)
-    port_single = calculate_return(investments_in, returns, gearing_cap, pi_rf, pi_rm, rf,
-                                   pay_taxes, debt_pct_offset, dual_phase=False)
+    port = calculate_return(investments_in, returns, gearing_cap, pi_rf, pi_rm, rf, rm,
+                            pay_taxes, dual_phase=True)
+    port_single = calculate_return(investments_in, returns, gearing_cap, pi_rf, pi_rm, rf, rm,
+                                   pay_taxes, dual_phase=False)
     port100 = calculate100return(investments_in, returns, pay_taxes)
     port9050 = calculate9050return(investments_in, returns, rf, pay_taxes)
 
@@ -452,7 +464,7 @@ def main_shiller(investments_in, returns, rf, rm, pi_rf, pi_rm, gearing_cap = 1,
 
 
 def fetch_returns_shiller(returns, YEARLY_RF, YEARLY_RM, BEGINNING_SAVINGS=9000, YEARLY_INCOME_GROWTH=0.03,
-                          PAY_TAXES=True, YEARS=50, GAMMA=2, COST=0.002, DEBT_PCT_OFFSET=0.0, SIGMA2=0.02837, MR=0.076):
+                          PAY_TAXES=True, YEARS=50, GAMMA=2, COST=0.002, SIGMA2=0.02837, MR=0.076):
 
     SLOPE = (0.014885 + YEARLY_INCOME_GROWTH / 12) * BEGINNING_SAVINGS
     CONVEXITY = -0.0000373649 * BEGINNING_SAVINGS
@@ -477,14 +489,14 @@ def fetch_returns_shiller(returns, YEARLY_RF, YEARLY_RM, BEGINNING_SAVINGS=9000,
     # Deduct yearly cost from returns
     returns -= COST/12
 
-    res = main_shiller(investments, returns, RF, RM, PI_RF, PI_RM, 1, DEBT_PCT_OFFSET, PAY_TAXES)
+    res = main_shiller(investments, returns, RF, RM, PI_RF, PI_RM, 1, PAY_TAXES)
 
     return res
 
 
 def fetch_returns(sim_type, random_seeds, BEGINNING_SAVINGS = 9000,
                    YEARLY_INCOME_GROWTH = 0.03, PAY_TAXES = True, YEARS = 50, GAMMA = 2,
-                   YEARLY_RF = 0.02, YEARLY_RM = 0.023, COST = 0.002, DEBT_PCT_OFFSET = 0.0,
+                   YEARLY_RF = 0.02, YEARLY_RM = 0.023, COST = 0.002,
                    SIGMA2 = 0.02837, MR = 0.076, SEED_INDEX = True):
 
     SLOPE = (0.014885 + YEARLY_INCOME_GROWTH/12) * BEGINNING_SAVINGS
@@ -511,7 +523,7 @@ def fetch_returns(sim_type, random_seeds, BEGINNING_SAVINGS = 9000,
 
     # Creating list of arguments
     a = [[investments], [sim_type], random_seeds, [1],
-         [DEBT_PCT_OFFSET], [RF], [PI_RM], [PI_RF], [PAY_TAXES], [SEED_INDEX], [COST]]
+         [RF], [RM], [PI_RM], [PI_RF], [PAY_TAXES], [SEED_INDEX], [COST]]
 
 
     comb_args = tuple(product(*a))
@@ -549,7 +561,7 @@ if __name__ == "__main__":
     rf = data.loc[begin:end, 'long_rf'].values/100
     rm = rf + 0.02
     tic = time.perf_counter()
-    #shil = fetch_returns_shiller(returns, rf, rm)
+    shil = fetch_returns_shiller(returns, rf, rm)
 
     #shil.index = pd.date_range(begin, end, freq='MS')
     # plt.plot(shil['dual_phase'])
@@ -560,7 +572,7 @@ if __name__ == "__main__":
     #plt.plot(shil['pi_rf'])
     #plt.legend(['dual_phase', 'single_phase', '100', '9050'])
     #plt.legend(['pi_rm', 'pi_rf'])
-    fetch_returns('garch', range(10), YEARLY_RF=rf, YEARLY_RM=rm)
+    #fetch_returns('garch', range(10), YEARLY_RF=0.02, YEARLY_RM=0.023)
     toc = time.perf_counter()
     profiler.disable()
     stats = pstats.Stats(profiler)
