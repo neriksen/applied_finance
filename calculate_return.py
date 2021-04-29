@@ -187,12 +187,21 @@ def calculate_return(savings_in, returns, gearing_cap, pi_rf_in, pi_rm_in, rf_in
     pp[0, total_debt] = pp[0, new_debt]
     pp[0, SU_debt] = min(pp[0, new_debt], 3248)
     pp[0, Nordnet_debt] = max(0, pp[0, new_debt] - 3248)
+
+    # Adding debt to SU and Nordnet objects
+    try:
+        debt_available['SU'].add_debt(pp[0, SU_debt])
+    except KeyError: pass
+    try:
+        debt_available['Nordnet'].add_debt(pp[0, Nordnet_debt])
+    except KeyError: pass
+
     pp[0, nip] = pp[0, new_debt] + pp[0, new_equity]
     pp[0, pv_p] = pp[0, nip]
     pp[0, pi_hat] = pp[0, pv_p] / ses_val
 
     # Period 0 ultimo
-    pp[0, interest] = pp[0, new_debt] * max(interest_all_debt(period=0), 0)
+    pp[0, interest] = max(interest_all_debt(period=0), 0)
     pp[0, pv_u] = pp[0, pv_p]
     pp[0, tv_u] = pp[0, pv_u] + pp[0, cash]
     pp[0, equity] = pp[0, tv_u] - pp[0, total_debt]
@@ -571,7 +580,7 @@ if __name__ == "__main__":
     rf = data.loc[begin:end, 'long_rf'].values/100
     rm = rf + 0.02
     tic = time.perf_counter()
-    shil = fetch_returns_shiller(returns, rf, rm)
+    #shil = fetch_returns_shiller(returns, rf, rm)
 
     #shil.index = pd.date_range(begin, end, freq='MS')
     # plt.plot(shil['dual_phase'])
@@ -582,14 +591,17 @@ if __name__ == "__main__":
     #plt.plot(shil['pi_rf'])
     #plt.legend(['dual_phase', 'single_phase', '100', '9050'])
     #plt.legend(['pi_rm', 'pi_rf'])
-    #fetch_returns('garch', range(10), YEARLY_RF=0.02, YEARLY_RM=0.023)
+    test = fetch_returns('garch', range(3), YEARLY_RF=0.02, YEARLY_RM=0.023)
+    print(test.loc[(2, slice(None)), ['interest']].head(100))
+    #plt.plot(test.loc[(2, slice(None)), ['interest']])
+    plt.show()
     toc = time.perf_counter()
     profiler.disable()
     stats = pstats.Stats(profiler)
     stats.strip_dirs()
     stats.sort_stats('cumtime')
     stats.reverse_order()
-    stats.print_stats()
+    #stats.print_stats()
     print(f"Script took {toc - tic:0.5f} seconds")
     #plt.show()
     # tic = time.perf_counter()
