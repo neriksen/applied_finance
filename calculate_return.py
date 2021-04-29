@@ -436,7 +436,7 @@ def main(investments_in, sim_type, random_state, gearing_cap,
 
 
 def main_shiller(investments_in, returns, rf, rm, pi_rf, pi_rm, gearing_cap = 1, pay_taxes=True):
-
+    
     port = calculate_return(investments_in, returns, gearing_cap, pi_rf, pi_rm, rf, rm,
                             pay_taxes, dual_phase=True)
     port_single = calculate_return(investments_in, returns, gearing_cap, pi_rf, pi_rm, rf, rm,
@@ -464,19 +464,29 @@ def main_shiller(investments_in, returns, rf, rm, pi_rf, pi_rm, gearing_cap = 1,
 
 
 def fetch_returns_shiller(returns, YEARLY_RF, YEARLY_RM, BEGINNING_SAVINGS=9000, YEARLY_INCOME_GROWTH=0.03,
-                          PAY_TAXES=True, YEARS=50, GAMMA=2, COST=0.002, SIGMA2=0.02837, MR=0.076):
+                          PAY_TAXES=True, YEARS=50, GAMMA=2, COST=0.002, SIGMA2=0.02837, MR=0.076, **kwargs):
 
     SLOPE = (0.014885 + YEARLY_INCOME_GROWTH / 12) * BEGINNING_SAVINGS
     CONVEXITY = -0.0000373649 * BEGINNING_SAVINGS
     JERK = 0.000000025 * BEGINNING_SAVINGS
     savings_func = lambda x: JERK * (x ** 3) + CONVEXITY * (x ** 2) + SLOPE * x + BEGINNING_SAVINGS
 
-    assert isinstance(YEARLY_RF, np.ndarray)
-    assert isinstance(YEARLY_RM, np.ndarray)
+    # In case RF or RM is inputted as constants convert to numpy arrays
+    if not isinstance(YEARLY_RF, np.ndarray):
+        YEARLY_RF = np.full(len(returns), YEARLY_RF)
 
-    PI_RF = calc_pi(GAMMA, SIGMA2, MR, YEARLY_RF, COST)
-    PI_RM = calc_pi(GAMMA, SIGMA2, MR, YEARLY_RM, COST)
-
+    if not isinstance(YEARLY_RM, np.ndarray):
+        YEARLY_RM = np.full(len(returns), YEARLY_RM)
+    
+    if not 'PI_RF' in kwargs:
+        PI_RF = calc_pi(GAMMA, SIGMA2, MR, YEARLY_RF, COST)
+    else:
+        PI_RF = kwargs['PI_RF']
+    if not 'PI_RM' in kwargs:
+        PI_RM = calc_pi(GAMMA, SIGMA2, MR, YEARLY_RM, COST)
+    else:
+        PI_RM = kwargs['PI_RM']
+    
     # Converting RF and RM to monthly rates
     RM = np.exp(YEARLY_RM/12) -1
     RF = np.exp(YEARLY_RF/12) -1
