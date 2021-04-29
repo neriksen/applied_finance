@@ -164,7 +164,7 @@ def calculate_return(savings_in, returns, gearing_cap, pi_rf_in, pi_rm_in, rf_in
     pp[:, pi_rm] = pi_rm_in
     pp[0, market_returns] = 0
 
-    debt_pct_offset = np.round(rm_in - 0.001918504646, 3)
+    debt_pct_offset = np.exp(rm_in*12)-1.023
     # Initializing debt objects
     try:
         debt_available['SU'] = Debt(rate_structure=[[0, 0, 0.04 + debt_pct_offset[0]]],
@@ -212,8 +212,8 @@ def calculate_return(savings_in, returns, gearing_cap, pi_rf_in, pi_rm_in, rf_in
     for i in range(1, len_savings):
 
         # Period t > 0 primo
-        if not (pp[i - 1, tv_u] <= 0 and (pp[i - 1, interest] > pp[i, savings])):
-
+        #if not (pp[i - 1, tv_u] <= 0 and (pp[i - 1, interest] > pp[i, savings])):
+        if not (pp[i - 1, tv_u] <= 0):
             pp[i, cash] = pp[i - 1, cash] * (1 + pp[i, rf]*(1-0.42))
             pp[i, cash], pp[i, new_equity], pp[i, new_debt] = determine_investment(
                 pp[i - 1, phase], pp[i - 1, pv_u],
@@ -279,7 +279,7 @@ def calculate_return(savings_in, returns, gearing_cap, pi_rf_in, pi_rm_in, rf_in
             # pp[i, dst] = max(pp[i-1, dst], max(pp[i, tv_u]*target_pi, ist))  # Locked stock target at highest previous position
 
         else:
-            #print('warning: catastrophic wipeout')
+
             pp[i:, [savings, cash, new_equity, new_debt, nip, pv_p,
                     interest, pv_u, tv_u, pi_hat, g_hat]] = 0
 
@@ -427,6 +427,9 @@ def main(investments_in, sim_type, random_state, gearing_cap,
     port['100'] = port100['tv_u']
     port['9050'] = port9050['tv_u']
     port['random_state'] = random_state
+
+    if port['savings'][len(returns)-1] == 0:
+        print('warning: catastrophic wipeout')
 
     # Convert selected float columns to integer values
     flt_cols = ['period', 'random_state', 'savings', 'cash', 'new_equity', 'new_debt', 'total_debt',
@@ -591,8 +594,8 @@ if __name__ == "__main__":
     #plt.plot(shil['pi_rf'])
     #plt.legend(['dual_phase', 'single_phase', '100', '9050'])
     #plt.legend(['pi_rm', 'pi_rf'])
-    test = fetch_returns('garch', range(3), YEARLY_RF=0.02, YEARLY_RM=0.023)
-    print(test.loc[(2, slice(None)), ['interest']].head(100))
+    test = fetch_returns('garch', range(2000), YEARLY_RF=0.02, YEARLY_RM=0.05)
+    #print(test.loc[(2, slice(None)), ['interest']].head(100))
     #plt.plot(test.loc[(2, slice(None)), ['interest']])
     plt.show()
     toc = time.perf_counter()
