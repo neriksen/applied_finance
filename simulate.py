@@ -54,7 +54,7 @@ class Market:
         
         
     
-    def t_innovations(self, log = True, freq = 'D', random_state = None):
+    def t_innovations(self, log = True, freq = 'D', random_state = None, nc = False):
         '''
         Simulate a market using a fitted t distribution
         
@@ -65,8 +65,14 @@ class Market:
         returns Nx1 Dataframe
         '''
         data = pick_log_freq(self, log, freq)
-        df, loc, scale = stats.t.fit(data)
-        market_sample = stats.t.rvs(df, loc, scale, size= pick_horizon(self, freq), random_state = random_state)
+        
+        if nc:
+            df, nc, loc, scale = stats.nct.fit(data)
+            market_sample = stats.nct.rvs(df, nc, loc, scale, size= pick_horizon(self, freq), random_state = random_state)
+        else:
+            df, loc, scale = stats.t.fit(data)
+            market_sample = stats.t.rvs(df, loc, scale, size= pick_horizon(self, freq), random_state = random_state)        
+    
         normalized = normalize_market(market_sample)
         
         return pd.DataFrame(normalized, index=pick_index(self, freq), columns=['Price'])
