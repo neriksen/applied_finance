@@ -12,7 +12,8 @@ def sim_market_garch(ran_state, Market):
 
     
 def sim_market_norm(ran_state, Market):
-    market = (Market.norm_innovations(random_state = ran_state, freq='M').asfreq('BMS', 'pad')['Price']
+    market = (Market.norm_innovations(random_state = ran_state, freq='M')
+              .asfreq('BMS', 'pad')['Price']
                       .pct_change()
                       .values)
     np.save('market_lookup/norm/' + str(ran_state) + '.npy', market)
@@ -20,7 +21,7 @@ def sim_market_norm(ran_state, Market):
     
     
 def sim_market_t(ran_state, Market):
-    market = (Market.t_innovations(random_state = ran_state, freq='M')
+    market = (Market.t_innovations(random_state = ran_state, freq='M', nc=True)
               .asfreq('BMS', 'pad')['Price']
                       .pct_change()
                       .values)
@@ -29,7 +30,8 @@ def sim_market_t(ran_state, Market):
     
     
 def sim_market_draw(ran_state, Market):
-    market = (Market.draw(random_state = ran_state, freq='M').asfreq('BMS', 'pad')['Price']
+    market = (Market.draw(random_state = ran_state, freq='M')
+              .asfreq('BMS', 'pad')['Price']
                       .pct_change()
                       .values)
     np.save('market_lookup/draw/' + str(ran_state) + '.npy', market)
