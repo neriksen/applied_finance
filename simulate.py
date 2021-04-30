@@ -79,7 +79,7 @@ class Market:
 
     
     
-    def draw(self, log = True, freq = 'Y', with_replacement = True, random_state = None):
+    def draw(self, log = True, freq = 'D', with_replacement = True, random_state = None):
         '''
         Simulated a market using drawing
 
