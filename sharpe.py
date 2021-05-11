@@ -39,7 +39,7 @@ def CE(df, strategy, gamma=2, cutoff = 10000):
     return (1/len_list)**(1/(1-gamma))*sum([(x)**(1-gamma) for x in input_list])**(1/(1-gamma))
 
 
-def CE_ports(df, gamma=2, cutoff = 10000):
+def CE_ports(df, gamma=2, cutoff = 10000, risk_premium = False):
     run_checks(df)
     
     CE_data = df[["dual_phase","single_phase","100","9050"]]
@@ -52,10 +52,16 @@ def CE_ports(df, gamma=2, cutoff = 10000):
         input_list=CE_data[strategy][abs(CE_data[strategy]) > cutoff].to_list()
         len_list = len(input_list)
         CE_val = (1/len_list)**(1/(1-gamma))*sum([(x)**(1-gamma) for x in input_list])**(1/(1-gamma))
-        CE_list.append(pd.DataFrame([f'{CE_val:,f}'], columns=[strategy]))
+        CE_list.append(pd.DataFrame([CE_val], columns=[strategy]))
 
     CE_list = pd.concat(CE_list, axis=1)
     CE_list.index = pd.Index(['Certainty Equivalent'])
+    
+    # Take mean of strategies
+    if risk_premium:
+        CE_list = (CE_data.mean()/CE_list-1)*100
+    
+    
     return CE_list
 
 
